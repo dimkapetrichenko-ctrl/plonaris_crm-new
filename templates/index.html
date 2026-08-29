@@ -1,1 +1,1226 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- КОМПАКТНІ ВЕРХНІ ФІНАНСОВІ ВІДЖЕТИ -->
+<div class="row g-2 mb-1">
+    <div class="col-md-4">
+        <div class="card py-1 px-3 border-start border-4 border-warning shadow-xs">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-uppercase text-muted fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">📁 Усього заплановано</span>
+                    <h5 class="mb-0 fw-bold text-dark" style="font-size: 1.15rem;">{{ "{:,.2f}".format(total_planned or 0) }} €</h5>
+                </div>
+                <div class="bg-warning-subtle text-warning p-1.5 rounded-circle fs-5 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                    <i class="bi bi-calendar2-check"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card py-1 px-3 border-start border-4 border-success shadow-xs">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-uppercase text-muted fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">💰 Фактично оплачено</span>
+                    <h5 class="mb-0 fw-bold text-success" style="font-size: 1.15rem;">{{ "{:,.2f}".format(total_actual or 0) }} €</h5>
+                </div>
+                <div class="bg-success-subtle text-success p-1.5 rounded-circle fs-5 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                    <i class="bi bi-cash-stack"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card py-1 px-3 border-start border-4 border-primary shadow-xs">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-uppercase text-muted fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">🎯 Залишилось виконати</span>
+                    <h5 class="mb-0 fw-bold text-primary" style="font-size: 1.15rem;">{{ "{:,.2f}".format(total_remaining or 0) }} €</h5>
+                </div>
+                <div class="bg-primary-subtle text-primary p-1.5 rounded-circle fs-5 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                    <i class="bi bi-graph-up-arrow"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- НАВІГАЦІЯ ВКЛАДОК -->
+<div class="row mb-2">
+    <div class="col-12">
+        <div class="card p-1">
+            <div class="d-flex flex-wrap gap-2 justify-content-center align-items-center">
+                <button onclick="switchWindow('all-win')" id="btn-all-win" class="btn btn-sm btn-brand fw-bold px-3 shadow-sm">
+                    <i class="bi bi-people me-1"></i> Список клієнтів
+                </button>
+                <button onclick="switchWindow('today-win')" id="btn-today-win" class="btn btn-sm btn-outline-secondary fw-semibold px-3">
+                    <i class="bi bi-fire text-danger me-1"></i> Дії на сьогодні
+                </button>
+                <button onclick="switchWindow('calendar-win')" id="btn-calendar-win" class="btn btn-sm btn-outline-secondary fw-semibold px-3">
+                    <i class="bi bi-calendar3 me-1"></i> Календар дій
+                </button>
+                <button onclick="switchWindow('finance-win')" id="btn-finance-win" class="btn btn-sm btn-outline-secondary fw-semibold px-3">
+                    <i class="bi bi-currency-euro me-1"></i> Річний план
+                </button>
+                
+                <button onclick="switchWindow('tasks-win')" id="btn-tasks-win" class="btn btn-sm btn-outline-secondary fw-semibold px-3 d-flex align-items-center gap-1.5">
+                    <i class="bi bi-check2-square me-1"></i>
+                    <span>Задачник</span>
+                    <span id="badge-tasks-active" class="badge bg-warning text-dark px-1.5 py-0.5 rounded-pill" style="font-size: 0.72rem; display: none;">0</span>
+                    <span id="badge-tasks-overdue" class="badge bg-danger text-white px-1.5 py-0.5 rounded-pill" style="font-size: 0.72rem; display: none;">0 !</span>
+                </button>
+                
+                <button onclick="switchWindow('demand-win')" id="btn-demand-win" class="btn btn-sm btn-outline-secondary fw-semibold px-3">
+                    <i class="bi bi-box-seam me-1"></i> Упущений попит
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ВІКНО: СПИСОК КЛІЄНТІВ -->
+<div id="window-all-win" class="crm-window">
+    <div class="card mb-2">
+        <div class="card-body py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button type="button" class="btn btn-danger btn-sm fw-bold px-3 shadow-sm d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#addClientModal">
+                    <i class="bi bi-plus-lg"></i> Новий клієнт
+                </button>
+                
+                <!-- ПЕРЕМИКАЧ СТАТУСУ КЛІЄНТІВ -->
+                <form method="GET" action="/" class="d-flex align-items-center m-0">
+                    <input type="hidden" name="search" value="{{ search_query }}">
+                    <input type="hidden" name="interest" value="{{ interest_filter }}">
+                    <input type="hidden" name="country" value="{{ country_filter }}">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="submit" name="status_view" value="active" class="btn {% if status_view == 'active' or not status_view %}btn-success fw-bold{% else %}btn-outline-secondary{% endif %}">
+                            🟢 Активні
+                        </button>
+                        <button type="submit" name="status_view" value="archived" class="btn {% if status_view == 'archived' %}btn-danger fw-bold{% else %}btn-outline-secondary{% endif %}">
+                            ⛔ Архів
+                        </button>
+                        <button type="submit" name="status_view" value="all" class="btn {% if status_view == 'all' %}btn-dark fw-bold{% else %}btn-outline-secondary{% endif %}">
+                            📁 Усі
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-light text-dark border px-3 py-2 font-monospace" style="font-size: 0.82rem;">
+                    Відображено: <span id="visible-clients-count" class="text-primary fw-bold">{{ clients|length }}</span> лідів
+                </span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetTableFilters()" title="Скинути фільтри">
+                    <i class="bi bi-arrow-counterclockwise"></i> Скинути
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card" style="max-height: 78vh; overflow-y: auto;">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0" id="mainClientsTable" style="font-size: 0.85rem; width: 100%;">
+                        <thead>
+                            <tr class="header-titles-row">
+                                <th style="width: 14%;">Компанії</th>
+                                <th style="width: 13%;">Тип клієнта</th>
+                                <th style="width: 10%;">Країна</th>
+                                <th style="text-align: center; width: 12%;">Зацікавленість</th>
+                                <th style="text-align: center; width: 15%;">Етап угоди</th>
+                                <th style="text-align: center; width: 6%;">MAYER</th>
+                                <th style="width: 19%;">Опис активності</th>
+                                <th style="width: 11%;">Наступна дія</th>
+                                <th style="text-align: center; width: 5%;">Дія</th>
+                            </tr>
+                            <tr id="excel-filter-row">
+                                <th>
+                                    <input type="text" id="filter-name" class="form-control form-control-sm" placeholder="🔍 Пошук..." onkeyup="filterClientsTable()">
+                                </th>
+                                <th>
+                                    <select id="filter-type" class="form-select form-select-sm" onchange="filterClientsTable()">
+                                        <option value="">Всі типи</option>
+                                        <option value="інтернет-магазин">інтернет-магазин</option>
+                                        <option value="гуртовий клієнт">гуртовий клієнт</option>
+                                        <option value="фермерське господарство">фермерське господарство</option>
+                                        <option value="виробник">виробник</option>
+                                        <option value="надання послуг">надання послуг</option>
+                                        <option value="роздрібний покупець">роздрібний покупець</option>
+                                        <option value="Дилер сг техніки">Дилер сг техніки</option>
+                                        <option value="не вказано">не вказано</option>
+                                    </select>
+                                </th>
+                                <th>
+                                    <select id="filter-country" class="form-select form-select-sm" onchange="filterClientsTable()">
+                                        <option value="">Всі країни</option>
+                                        {% for c_item in countries %}
+                                        <option value="{{ c_item|lower }}">{{ c_item }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </th>
+                                <th>
+                                    <select id="filter-interest" class="form-select form-select-sm text-center" onchange="filterClientsTable()">
+                                        <option value="">Всі статуси</option>
+                                        <option value="зацікавленість">😍 Висока</option>
+                                        <option value="середня зацікавленість">🤔 Середня</option>
+                                        <option value="немає зацікавленості">😴 Немає</option>
+                                        <option value="не опрацьовано">❓ Не опр.</option>
+                                    </select>
+                                </th>
+                                <th>
+                                    <select id="filter-stage" class="form-select form-select-sm text-center" onchange="filterClientsTable()">
+                                        <option value="">Всі етапи</option>
+                                        <option value="request">📩 Запит</option>
+                                        <option value="offer_sent">📄 Рахунок</option>
+                                        <option value="paid_shipped">📦 Оплачено</option>
+                                        <option value="regular">🤝 Постійний</option>
+                                        <option value="none">⚪ Без угоди</option>
+                                    </select>
+                                </th>
+                                <th>
+                                    <select id="filter-mayer" class="form-select form-select-sm text-center" onchange="filterClientsTable()">
+                                        <option value="">Всі</option>
+                                        <option value="Так">🌐 Так</option>
+                                        <option value="Ні">🔒 Ні</option>
+                                    </select>
+                                </th>
+                                <th>
+                                    <input type="text" id="filter-last" class="form-control form-control-sm" placeholder="🔍 В описі..." onkeyup="filterClientsTable()">
+                                </th>
+                                <th>
+                                    <select id="filter-next-type" class="form-select form-select-sm" onchange="filterClientsTable()">
+                                        <option value="">Всі дії</option>
+                                        <option value="call">📞 Дзвінок</option>
+                                        <option value="visit">🚗 Візит</option>
+                                        <option value="email">✉️ Лист</option>
+                                        <option value="no_event">❌ Без дій</option>
+                                    </select>
+                                </th>
+                                <th class="text-center">
+                                    <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1" onclick="resetTableFilters()" title="Скинути фільтри">✕</button>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="clients-table-body">
+                            {% for client in clients %}
+                            <tr class="client-row {% if client.next_event_date == today_date %}table-warning fw-bold{% endif %}"
+                                data-name="{{ (client.name or '')|lower }} {{ (client.contact_person or '')|lower }} {{ (client.phone or '')|lower }} {{ (client.email or '')|lower }}"
+                                data-type="{{ (client.buyer_type or 'не вказано')|lower }}"
+                                data-country="{{ (client.country or '')|lower }}"
+                                data-interest="{{ (client.interest_level or 'не опрацьовано')|lower }}"
+                                data-stage="{{ client.deal_stage or 'none' }}"
+                                data-mayer="{{ client.mayer_reg or 'Ні' }}"
+                                data-last="{{ (client.last_activity or '')|lower }} {{ (client.last_activity_text or '')|lower }}"
+                                data-next-date="{{ (client.next_event_date or '')|lower }}"
+                                data-next-type="{{ (client.next_event_type or '')|lower }}">
+                                
+                                <td style="padding: 6px 8px; max-width: 150px;">
+                                    <a href="/client/{{ client.id }}" class="fw-bold text-decoration-none text-dark d-block text-truncate" title="{{ client.name }}">
+                                        <i class="bi bi-building text-primary"></i> {{ client.name }}
+                                    </a>
+                                    {% if not client.is_active %}
+                                        <span class="badge badge-soft-danger mt-0.5" style="font-size: 0.65rem;" title="{{ client.deactivation_reason }}">⛔ Архів</span>
+                                    {% endif %}
+                                    {% if client.contact_person %}
+                                        <div class="text-muted text-truncate" style="font-size: 0.72rem;" title="{{ client.contact_person }} {% if client.phone %}({{ client.phone }}){% endif %}">
+                                            <i class="bi bi-person"></i> {{ client.contact_person }}
+                                        </div>
+                                    {% endif %}
+                                    {% if client.website %}
+                                        <a href="{% if 'http' not in client.website %}https://{% endif %}{{ client.website }}" target="_blank" class="text-decoration-none text-primary d-block text-truncate" style="font-size: 0.70rem;" title="{{ client.website }}">
+                                            <i class="bi bi-link-45deg"></i>{{ client.website | replace('https://','') | replace('http://','') | replace('www.','') }}
+                                        </a>
+                                    {% endif %}
+                                </td>
+                                
+                                <td>
+                                    <span class="badge badge-soft-primary px-1.5 py-0.5 text-truncate d-inline-block" style="max-width: 120px;">{{ client.buyer_type }}</span>
+                                </td>
+                                
+                                <td><span class="badge badge-soft-secondary px-1.5 py-0.5 text-truncate d-inline-block" style="max-width: 95px;">📍 {{ client.country or '-' }}</span></td>
+                                
+                                <td style="text-align: center;">
+                                    {% if client.interest_level == 'зацікавленість' %}<span class="badge badge-soft-success w-100 py-1 fw-bold">😍 Висока</span>
+                                    {% elif client.interest_level == 'середня зацікавленість' %}<span class="badge badge-soft-warning w-100 py-1 fw-bold">🤔 Середня</span>
+                                    {% elif client.interest_level == 'немає зацікавленості' %}<span class="badge badge-soft-primary w-100 py-1 fw-bold">😴 Немає</span>
+                                    {% else %}<span class="badge badge-soft-secondary w-100 py-1 fw-bold">❓ Не опр.</span>{% endif %}
+                                </td>
+
+                                <td style="text-align: center;">
+                                    {% if client.deal_stage == 'offer_sent' %}
+                                        <span class="badge bg-warning text-dark border border-dark w-100 py-1 shadow-xs fw-bold">📄 Рахунок (КП)</span>
+                                    {% elif client.deal_stage == 'request' %}
+                                        <span class="badge bg-info-subtle text-info border border-info w-100 py-1 fw-bold">📩 Запит/Підбір</span>
+                                    {% elif client.deal_stage == 'paid_shipped' %}
+                                        <span class="badge bg-success text-white w-100 py-1 fw-bold">📦 Оплачено</span>
+                                    {% elif client.deal_stage == 'regular' %}
+                                        <span class="badge bg-primary text-white w-100 py-1 fw-bold">🤝 Партнер</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-muted border w-100 py-0.5" style="font-size: 0.72rem;">⚪ Без угоди</span>
+                                    {% endif %}
+                                </td>
+                                
+                                <td style="text-align: center;">{% if client.mayer_reg == 'Так' %}<span class="badge badge-soft-success fw-bold px-1.5 py-0.5">🌐 Так</span>{% else %}<span class="badge badge-soft-secondary px-1 py-0.5" style="font-size: 0.7rem;">🔒 Ні</span>{% endif %}</td>
+                                
+                                <td style="padding: 6px 8px;">
+                                    {% if client.last_activity %}
+                                        <span class="badge bg-light text-dark border font-monospace mb-0.5" style="font-size: 0.65rem;">🕒 {{ client.last_activity | replace('2026-', '') }}</span>
+                                        <div class="text-truncate text-secondary" style="font-size: 0.75rem; max-width: 210px;" title="{{ client.last_activity_text }}">
+                                            {{ client.last_activity_text or 'Запис відсутній' }}
+                                        </div>
+                                    {% else %}
+                                        <small class="text-muted" style="font-size: 0.72rem;">немає активностей</small>
+                                    {% endif %}
+                                </td>
+                                
+                                <td>
+                                    {% if client.next_event_date %}
+                                        <div class="{% if client.next_event_date == today_date %}text-danger fw-bold{% else %}text-dark{% endif %}" style="font-size: 0.75rem;">📅 {{ client.next_event_date | replace('2026-', '') }}</div>
+                                        <span class="badge {% if client.next_event_date == today_date %}bg-danger text-white{% else %}badge-soft-primary{% endif %} px-1 py-0.5" style="font-size: 0.65rem;">
+                                            {% if client.next_event_type == 'call' %}📞 Дзв.{% elif client.next_event_type == 'visit' %}🚗 Віз.{% else %}✉️ Лист{% endif %}
+                                        </span>
+                                    {% else %}
+                                        <small class="text-muted" style="font-size: 0.72rem;">ні</small>
+                                    {% endif %}
+                                </td>
+                                
+                                <td style="text-align: center; padding: 4px;">
+                                    <a href="/client/{{ client.id }}" class="btn btn-xs btn-outline-primary fw-medium px-1.5 py-0.5" style="font-size: 0.72rem;" title="Відкрити картку клієнта">Картка</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            
+                            {% if not clients %}
+                            <tr><td colspan="9" class="text-center text-muted py-4">База клієнтів порожня.</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ВІКНО: УПУЩЕНИЙ ПОПИТ -->
+<div id="window-demand-win" class="crm-window" style="display: none;">
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-danger text-white py-2.5 fw-bold">🔥 ТОП-10 дефіцитних артикулів</div>
+                <div class="card-body p-2 bg-light">
+                    <ul class="list-group list-group-flush rounded-3">
+                        {% for top in top_demand %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center p-2.5">
+                            <div>
+                                <strong class="text-dark">{{ top.article }}</strong>
+                                <br><small class="text-muted">{{ top.title or 'Без назви' }}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-danger rounded-pill fw-bold">{{ top.request_count }} зап.</span>
+                                <br><small class="fw-bold text-primary">{{ top.total_qty }} шт.</small>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-white py-2.5 fw-bold">📋 Журнал запитів відсутніх товарів</div>
+                <div class="table-responsive" style="max-height: 75vh; overflow-y: auto;">
+                    <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Дата</th><th>Артикул</th><th>Назва/Бренд</th><th>К-сть</th><th>Клієнт</th><th>Статус</th><th>Коментар</th><th>Дія</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for dem in lost_demand_list %}
+                            <tr>
+                                <td class="font-monospace small">{{ dem.created_at }}</td>
+                                <td><strong class="text-danger">{{ dem.article }}</strong></td>
+                                <td>{{ dem.title or '-' }}</td>
+                                <td class="fw-bold text-center">{{ dem.quantity }}</td>
+                                <td>{% if dem.client_id %}<a href="/client/{{ dem.client_id }}" class="fw-bold text-decoration-none">🏢 {{ dem.client_name }}</a>{% else %}-{% endif %}</td>
+                                <td>
+                                    {% if dem.status == 'lost' %}<span class="badge badge-soft-danger">🔴 Відмова</span>
+                                    {% elif dem.status == 'waiting' %}<span class="badge badge-soft-warning">🟡 В очікуванні</span>
+                                    {% else %}<span class="badge badge-soft-success">🟢 Заміна/Аналог</span>{% endif %}
+                                </td>
+                                <td style="white-space: pre-line;">{{ dem.note or '-' }}</td>
+                                <td>
+                                    <form action="/delete_lost_demand/{{ dem.id }}" method="POST" onsubmit="return confirm('Видалити запис?');">
+                                        <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1">🗑️</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ВІКНО: ЗАДАЧНИК -->
+<div id="window-tasks-win" class="crm-window" style="display: none;">
+    <div class="row g-3">
+        <div class="col-md-7">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-header bg-white py-2.5 d-flex justify-content-between align-items-center border-bottom">
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 fw-bold" onclick="changeTasksMonth(-1)">◀</button>
+                    <h6 id="tasks-calendar-title" class="mb-0 fw-bold text-dark text-center" style="min-width: 180px;">---</h6>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 fw-bold" onclick="changeTasksMonth(1)">▶</button>
+                </div>
+                <div class="card-body p-3 bg-light-subtle">
+                    <table class="table table-bordered text-center align-middle bg-white shadow-xs table-sm mb-0 tasks-grid" style="font-size: 0.9rem; table-layout: fixed; width: 100%;">
+                        <thead class="table-light fw-bold text-muted">
+                            <tr>
+                                <th>Пн</th><th>Вт</th><th>Ср</th><th>Чт</th><th>Пт</th><th class="text-danger">Сб</th><th class="text-danger">Нд</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tasks-calendar-body" class="font-monospace"></tbody>
+                    </table>
+                    
+                    <div class="d-flex justify-content-around mt-3 small text-muted" style="font-size: 0.76rem;">
+                        <span>🟡 <strong>Активні задачі</strong></span>
+                        <span>🔴 <strong>Прострочені</strong></span>
+                        <span>🟢 <strong>Всі виконано (✔)</strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-5">
+            <div class="card shadow-sm border-0 mb-3">
+                <div class="card-header bg-dark text-white py-2 fw-bold" id="selected-tasks-date-title">🎯 Оберіть день в календарі задач</div>
+                <div class="card-body p-2 bg-white" id="tasks-list-box" style="max-height: 42vh; overflow-y: auto;">
+                    <div class="text-center text-muted py-4 small">Натисніть на будь-яку дату зліва, щоб переглянути списки завдань.</div>
+                </div>
+            </div>
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-light py-2 fw-bold text-uppercase small" style="font-size: 0.78rem; letter-spacing: 0.5px;">➕ Створити нове завдання</div>
+                <div class="card-body p-3" style="font-size: 0.85rem;">
+                    <form action="/add_task" method="POST">
+                        <div class="mb-2">
+                            <label class="form-label mb-0 fw-bold">Зміст завдання:</label>
+                            <textarea name="text" class="form-control form-control-sm" rows="2" placeholder="Напишіть опис справи..." required></textarea>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label mb-0 small text-muted">Термін виконання:</label>
+                                <input type="date" name="deadline" id="tasks-input-date" class="form-control form-control-sm fw-bold text-danger" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label mb-0 small text-muted">Відповідальна особа:</label>
+                                <select name="author" class="form-select form-select-sm fw-bold">
+                                    <option value="Продажі" selected>💼 Продажі</option>
+                                    <option value="CEO">📁 CEO</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-brand w-100 fw-bold mt-3">💾 Додати завдання в планер</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ВІКНО: ДІЇ НА СЬОГОДНІ -->
+<div id="window-today-win" class="crm-window" style="display: none;">
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-warning-subtle text-dark fw-bold py-2.5 border-bottom border-warning">🚀 Завдання на сьогодні ({{ today_date }})</div>
+        <div class="table-responsive" style="max-height: 82vh; overflow-y: auto;">
+            <table class="table table-hover align-middle mb-0" style="font-size: 0.95rem;">
+                <thead class="table-dark">
+                    <tr><th>Компанія</th><th>Тип клієнта</th><th>Країна</th><th>Тип дії</th><th>Дія</th></tr>
+                </thead>
+                <tbody>
+                    {% set today_count = namespace(value=0) %}
+                    {% for client in clients %}
+                        {% if client.next_event_date == today_date %}
+                        {% set today_count.value = today_count.value + 1 %}
+                        <tr style="background-color: #fffbeb !important;">
+                            <td><strong>{{ client.name }}</strong></td>
+                            <td><span class="badge badge-soft-primary">💼 {{ client.buyer_type }}</span></td>
+                            <td><span class="badge badge-soft-secondary">📍 {{ client.country or '-' }}</span></td>
+                            <td>
+                                <span class="badge bg-primary text-capitalize p-2">
+                                    {% if client.next_event_type == 'call' %}📞 Дзвінок{% elif client.next_event_type == 'visit' %}🚗 Візит{% else %}✉️ Лист{% endif %}
+                                </span>
+                            </td>
+                            <td><a href="/client/{{ client.id }}" class="btn btn-sm btn-dark fw-bold">Картка</a></td>
+                        </tr>
+                        {% endif %}
+                    {% endfor %}
+                    {% if today_count.value == 0 %}
+                    <tr><td colspan="5" class="text-center text-muted py-4 fw-bold">🌴 На сьогодні дій не заплановано. Гарного дня!</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ВІКНО: КАЛЕНДАР ДІЙ -->
+<div id="window-calendar-win" class="crm-window" style="display: none;">
+    <div class="row">
+        <div class="col-md-5 mb-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
+                    <button type="button" class="btn btn-sm btn-light py-0 px-2 fw-bold" onclick="changeMonth(-1)">◀</button>
+                    <h6 id="calendar-month-year" class="mb-0 text-white fw-bold px-3 text-center" style="min-width: 150px;">---</h6>
+                    <button type="button" class="btn btn-sm btn-light py-0 px-2 fw-bold" onclick="changeMonth(1)">▶</button>
+                </div>
+                <div class="card-body p-3 bg-light-subtle">
+                    <table class="table table-bordered text-center mb-0 bg-white shadow-xs table-sm" style="font-size: 0.9rem;">
+                        <thead class="table-light fw-bold">
+                            <tr>
+                                <th>Пн</th><th>Вт</th><th>Ср</th><th>Чт</th><th>Пт</th><th class="text-danger">Сб</th><th class="text-danger">Нд</th>
+                            </tr>
+                        </thead>
+                        <tbody id="calendar-grid-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-7 mb-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-dark text-white py-2 fw-bold" id="selected-date-title">🎯 Клацніть на день у календарі, щоб переглянути справи</div>
+                <div class="card-body p-0" id="calendar-tasks-box">
+                    <div class="text-center text-muted py-4">Будь ласка, оберіть дату в календарі.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ВІКНО: РІЧНИЙ ПЛАН -->
+<div id="window-finance-win" class="crm-window" style="display: none;">
+    <div class="row g-3">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark text-white py-2 fw-bold">➕ Додати плановий рядок</div>
+                <div class="card-body p-3 bg-light-subtle" style="font-size: 0.85rem;">
+                    <form action="/add_finance_plan" method="POST" onsubmit="syncClientId()">
+                        <div class="mb-2">
+                            <label class="form-label mb-0 fw-bold">Назва клієнта (пошук):</label>
+                            <input type="text" id="client_search_input" class="form-control form-control-sm" placeholder="🔍 Почніть писати..." list="clients_datalist" oninput="syncClientId()" required autocomplete="off">
+                            <input type="hidden" id="real_client_id" name="client_id">
+                            <datalist id="clients_datalist">
+                                {% for sel_c in all_selector_clients %}
+                                <option data-id="{{ sel_c[0] }}" value="{{ sel_c[1] }}"></option>
+                                {% endfor %}
+                            </datalist>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label mb-0 small text-muted">Заплановано надходження, EUR:</label>
+                            <input type="number" step="0.01" name="planned_amount" class="form-control form-control-sm fw-bold text-primary" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label mb-0 small text-muted">Місяць:</label>
+                            <select name="month_name" class="form-select form-select-sm">
+                                <option value="Січень">Січень</option><option value="Лютий">Лютий</option><option value="Березень">Березень</option>
+                                <option value="Квітень">Квітень</option><option value="Травень">Травень</option><option value="Червень">Червень</option>
+                                <option value="Липень" selected>Липень</option><option value="Серпень">Серпень</option><option value="Вересень">Вересень</option>
+                                <option value="Жовтень">Жовтень</option><option value="Листопад">Листопад</option><option value="Грудень">Грудень</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label mb-0 small text-muted">Фактичне надходження, EUR:</label>
+                            <input type="number" step="0.01" name="actual_amount" class="form-control form-control-sm" value="0">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label mb-0 small text-muted">Дата надходження:</label>
+                            <input type="date" name="payment_date" class="form-control form-control-sm">
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-brand w-100 fw-bold">Зберегти показник</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-9">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-2.5 d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom">
+                    <span class="fw-bold text-dark">📋 Зведена відомість річного плану</span>
+                    <form method="GET" action="/" class="d-flex align-items-center gap-1 mb-0">
+                        <input type="hidden" name="tab" value="finance">
+                        <select name="finance_month" class="form-select form-select-sm bg-light text-dark fw-semibold" onchange="this.form.submit()" style="max-width: 160px; cursor: pointer;">
+                            <option value="">📅 Усі місяці</option>
+                            {% for m in ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"] %}
+                            <option value="{{ m }}" {% if finance_month_filter == m %}selected{% endif %}>{{ m }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </div>
+                <div class="table-responsive" style="max-height: 70vh; overflow-y: auto;">
+                    <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem; width:100%;">
+                        <thead class="table-light position-sticky top-0">
+                            <tr>
+                                <th>Назва клієнта</th><th>Країна</th><th class="text-end text-primary">Заплановано, EUR</th><th>Місяць</th><th class="text-end text-success">Фактично, EUR</th><th>Дата надходження</th><th class="text-center">Дія</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for plan in finance_plans %}
+                            <tr>
+                                <td><a href="/client/{{ plan.client_id }}" class="fw-bold text-decoration-none text-dark">🏢 {{ plan.client_name }}</a></td>
+                                <td><span class="badge badge-soft-secondary">📍 {{ plan.country }}</span></td>
+                                <td class="text-end fw-bold text-primary">{{ "{:,.2f}".format(plan.planned_amount) }} €</td>
+                                <td><span class="badge bg-light text-dark border px-2">{{ plan.month_name }}</span></td>
+                                <td class="text-end fw-bold text-success">{{ "{:,.2f}".format(plan.actual_amount) }} €</td>
+                                <td class="text-muted small">{{ plan.payment_date }}</td>
+                                <td class="text-center">
+                                    <button class="btn btn-xs btn-outline-secondary py-0 px-1.5 fw-bold btn-edit-finance" 
+                                            data-id="{{ plan.id }}" data-client="{{ plan.client_name }}" data-planned="{{ plan.planned_amount }}" data-month="{{ plan.month_name }}" data-actual="{{ plan.actual_amount }}" data-date="{{ plan.payment_date or '' }}">✏️ Ред.</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-light fw-bold border-top text-dark position-sticky bottom-0">
+                            <tr>
+                                <td colspan="2" class="text-end text-uppercase">💰 Разом підсумки:</td>
+                                <td class="text-end text-primary fs-6">{{ "{:,.2f}".format(total_planned) }} €</td>
+                                <td></td>
+                                <td class="text-end text-success fs-6">{{ "{:,.2f}".format(total_actual) }} €</td>
+                                <td colspan="2" class="text-center bg-primary-subtle text-primary py-1.5" style="font-size: 0.78rem;">
+                                    Залишилось до виконання: <strong>{{ "{:,.2f}".format(total_remaining) }} €</strong>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛЬНЕ ВІКНО СТВОРЕННЯ НОВОГО КЛІЄНТА -->
+<div class="modal fade" id="addClientModal" tabindex="-1" aria-labelledby="addClientModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white py-2.5">
+                <h5 class="modal-title fw-bold" id="addClientModalLabel">➕ Створення картки нового клієнта</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="/add_client" method="POST" class="mb-0">
+                <div class="modal-body p-3" style="font-size: 0.85rem; max-height: 70vh; overflow-y: auto;">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label mb-0 fw-bold">Назва компанії *</label>
+                            <input type="text" name="name" class="form-control form-control-sm" required placeholder="Введіть назву компанії">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label mb-0 fw-bold">Етап угоди</label>
+                            <select name="deal_stage" class="form-select form-select-sm fw-bold">
+                                <option value="none" selected>⚪ Немає активної угоди</option>
+                                <option value="request">📩 1. Запит / Підбір</option>
+                                <option value="offer_sent">📄 2. Рахунок (КП) надіслано</option>
+                                <option value="paid_shipped">📦 3. Оплачено / Відвантажено</option>
+                                <option value="regular">🤝 4. Постійний партнер</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label mb-0 fw-bold">Зацікавленість *</label>
+                            <select name="interest_level" class="form-select form-select-sm" required>
+                                <option value="не опрацьовано" selected>Прозорий — не опрацьовано</option>
+                                <option value="немає зацікавленості">Синій — немає</option>
+                                <option value="середня зацікавленість">Жовтий — середня</option>
+                                <option value="зацікавленість">Зелений — висока</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label mb-0 fw-bold">Реєстрація на сайті MAYER PRO</label>
+                            <select name="mayer_reg" class="form-select form-select-sm">
+                                <option value="Ні" selected>Ні</option>
+                                <option value="Так">Так</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label mb-0">Тип покупця</label>
+                            <select name="buyer_type" class="form-select form-select-sm">
+                                <option value="не вказано" selected>не вказано</option>
+                                <option value="інтернет-магазин">інтернет-магазин</option>
+                                <option value="гуртовий клієнт">гуртовий клієнт</option>
+                                <option value="фермерське господарство">фермерське господарство</option>
+                                <option value="виробник">виробник</option>
+                                <option value="надання послуг">надання послуг</option>
+                                <option value="роздрібний покупець">роздрібний покупець</option>
+                                <option value="Дилер сг техніки">Дилер сг техніки</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label mb-0">Країна</label>
+                            <input type="text" name="country" class="form-control form-control-sm" placeholder="Наприклад: Польща">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label mb-0">Веб-сайт</label>
+                            <input type="text" name="website" class="form-control form-control-sm" placeholder="www.example.com">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label mb-0">Адреса</label>
+                            <input type="text" name="address" class="form-control form-control-sm" placeholder="Повна юридична або фізична адреса">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label mb-0 fw-bold">Пріоритетні бренди</label>
+                            <div class="p-2.5 border rounded-3 bg-light d-flex flex-wrap gap-3" style="font-size: 0.8rem;">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="brands" value="Vaderstad" id="add_b_vaderstad">
+                                    <label class="form-check-label" for="add_b_vaderstad">Vaderstad</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="brands" value="Gaspardo" id="add_b_gaspardo">
+                                    <label class="form-check-label" for="add_b_gaspardo">Gaspardo</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="brands" value="Horsch" id="add_b_horsch">
+                                    <label class="form-check-label" for="add_b_horsch">Horsch</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="brands" value="Kverneland" id="add_b_kverneland">
+                                    <label class="form-check-label" for="add_b_kverneland">Kverneland</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="brands" value="Pottinger" id="add_b_pottinger">
+                                    <label class="form-check-label" for="add_b_pottinger">Pottinger</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 border-end">
+                            <h6 class="text-danger fw-bold border-bottom pb-1 mb-1" style="font-size: 0.85rem;">👤 Контактна особа №1</h6>
+                            <input type="text" name="contact_person" class="form-control form-control-sm mb-1" placeholder="ПІБ">
+                            <input type="text" name="position" class="form-control form-control-sm mb-1" placeholder="Посада">
+                            <input type="text" name="phone" class="form-control form-control-sm mb-1" placeholder="Телефон">
+                            <input type="text" name="whatsapp_1" class="form-control form-control-sm mb-1 border-success text-success fw-bold" placeholder="🟢 WhatsApp №1">
+                            <input type="email" name="email" class="form-control form-control-sm" placeholder="Email">
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-danger fw-bold border-bottom pb-1 mb-1" style="font-size: 0.85rem;">👤 Контактна особа №2</h6>
+                            <input type="text" name="contact_person_2" class="form-control form-control-sm mb-1" placeholder="ПІБ">
+                            <input type="text" name="position_2" class="form-control form-control-sm mb-1" placeholder="Посада">
+                            <input type="text" name="phone_2" class="form-control form-control-sm mb-1" placeholder="Телефон">
+                            <input type="text" name="whatsapp_2" class="form-control form-control-sm border-success text-success fw-bold" placeholder="🟢 WhatsApp №2">
+                            <input type="email" name="email_2" class="form-control form-control-sm" placeholder="Email">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+                    <button type="submit" class="btn btn-sm btn-brand fw-bold px-4">Створити картку</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛЬНЕ ВІКНО РЕДАГУВАННЯ ФІНАНСОВОГО ПЛАНУ -->
+<div class="modal fade" id="editFinanceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white py-2.5">
+                <h6 class="modal-title fw-bold">✏️ Редагувати плановий показник: <span id="edit_finance_client_name" class="text-warning"></span></h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editFinanceForm" method="POST" action="">
+                <div class="modal-body p-3 bg-light-subtle" style="font-size: 0.85rem;">
+                    <div class="mb-2">
+                        <label class="form-label mb-0 small text-muted">Заплановано надходження, EUR:</label>
+                        <input type="number" step="0.01" name="planned_amount" id="edit_planned_amount" class="form-control form-control-sm fw-bold text-primary" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label mb-0 small text-muted">Місяць:</label>
+                        <select name="month_name" id="edit_month_name" class="form-select form-select-sm">
+                            <option value="Січень">Січень</option><option value="Лютий">Лютий</option><option value="Березень">Березень</option>
+                            <option value="Квітень">Квітень</option><option value="Травень">Травень</option><option value="Червень">Червень</option>
+                            <option value="Липень">Липень</option><option value="Серпень">Серпень</option><option value="Вересень">Вересень</option>
+                            <option value="Жовтень">Жовтень</option><option value="Листопад">Листопад</option><option value="Грудень">Грудень</option>
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label mb-0 small text-muted">Фактичне надходження, EUR:</label>
+                        <input type="number" step="0.01" name="actual_amount" id="edit_actual_amount" class="form-control form-control-sm" value="0">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label mb-0 small text-muted">Дата надходження:</label>
+                        <input type="date" name="payment_date" id="edit_payment_date" class="form-control form-control-sm">
+                    </div>
+                    <div class="d-flex justify-content-between gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-danger" id="btn_delete_finance">🗑️ Видалити</button>
+                        <button type="submit" class="btn btn-sm btn-brand fw-bold px-4">Зберегти зміни</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛЬНЕ ВІКНО РЕДАГУВАННЯ ЗАВДАННЯ -->
+<div class="modal fade" id="editTaskModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white py-2.5">
+                <h6 class="modal-title fw-bold">✏️ Редагувати завдання</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editTaskForm" method="POST" action="">
+                <div class="modal-body p-3" style="font-size: 0.85rem;">
+                    <div class="mb-2">
+                        <label class="form-label mb-0 fw-bold">Зміст завдання:</label>
+                        <textarea name="text" id="edit_task_text" class="form-control form-control-sm" rows="3" required></textarea>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label mb-0 small text-muted">Термін виконання:</label>
+                            <input type="date" name="deadline" id="edit_task_deadline" class="form-control form-control-sm fw-bold text-danger" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label mb-0 small text-muted">Відповідальна особа:</label>
+                            <select name="author" id="edit_task_author" class="form-select form-select-sm fw-bold">
+                                <option value="Продажі">💼 Продажі</option>
+                                <option value="CEO">📁 CEO</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+                    <button type="submit" class="btn btn-sm btn-brand fw-bold px-4">Зберегти зміни</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    #mainClientsTable {
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+    }
+
+    #mainClientsTable thead {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    #mainClientsTable thead tr.header-titles-row th {
+        position: sticky;
+        top: 0;
+        height: 38px;
+        line-height: 1.2;
+        background-color: #f1f5f9 !important;
+        border-bottom: 1px solid #cbd5e1;
+        z-index: 12;
+    }
+
+    #mainClientsTable thead tr#excel-filter-row th {
+        position: sticky;
+        top: 38px;
+        background-color: #f8fafc !important;
+        border-bottom: 2px solid #94a3b8;
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.05);
+        z-index: 11;
+        padding-top: 4px;
+        padding-bottom: 6px;
+    }
+
+    .tasks-grid td { height: 54px; position: relative; cursor: pointer; font-weight: 500; vertical-align: top; padding-top: 5px; }
+    .tasks-grid td:hover { background-color: #f1f5f9 !important; }
+    .tasks-dot-badge { 
+        position: absolute; 
+        bottom: 3px; 
+        right: 3px; 
+        font-size: 0.65rem; 
+        padding: 2px 5px; 
+        border-radius: 6px; 
+        display: flex; 
+        gap: 3px; 
+        align-items: center; 
+        font-weight: bold; 
+    }
+    .calendar-today-highlight { outline: 2px solid #0f172a !important; outline-offset: -2px; }
+</style>
+
+<script>
+const allClients = JSON.parse({{ json_clients | tojson | safe }});
+const busyDates = JSON.parse({{ json_busy_dates | tojson | safe }});
+const allTasksList = JSON.parse({{ json_tasks | tojson | safe }});
+let currentYear = new Date().getFullYear();
+let currentMonth = new Date().getMonth();
+let tasksYear = new Date().getFullYear();
+let tasksMonth = new Date().getMonth();
+const monthNames = ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"];
+
+function updateTasksDesktopBadges() {
+    const today = new Date().toISOString().split('T')[0];
+    let activeCount = 0;
+    let overdueCount = 0;
+
+    allTasksList.forEach(t => {
+        if (t.status === 'in_progress') {
+            activeCount++;
+            if (t.deadline && t.deadline < today) {
+                overdueCount++;
+            }
+        }
+    });
+
+    const activeBadge = document.getElementById('badge-tasks-active');
+    const overdueBadge = document.getElementById('badge-tasks-overdue');
+
+    if (activeBadge) {
+        if (activeCount > 0) {
+            activeBadge.innerText = activeCount;
+            activeBadge.style.display = 'inline-block';
+        } else {
+            activeBadge.style.display = 'none';
+        }
+    }
+
+    if (overdueBadge) {
+        if (overdueCount > 0) {
+            overdueBadge.innerText = overdueCount + ' !';
+            overdueBadge.style.display = 'inline-block';
+        } else {
+            overdueBadge.style.display = 'none';
+        }
+    }
+}
+
+function filterClientsTable() {
+    const nameVal = (document.getElementById('filter-name')?.value || '').toLowerCase().trim();
+    const typeVal = (document.getElementById('filter-type')?.value || '').toLowerCase().trim();
+    const countryVal = (document.getElementById('filter-country')?.value || '').toLowerCase().trim();
+    const interestVal = (document.getElementById('filter-interest')?.value || '').toLowerCase().trim();
+    const stageVal = (document.getElementById('filter-stage')?.value || '').toLowerCase().trim();
+    const mayerVal = (document.getElementById('filter-mayer')?.value || '').toLowerCase().trim();
+    const lastVal = (document.getElementById('filter-last')?.value || '').toLowerCase().trim();
+    const nextTypeVal = (document.getElementById('filter-next-type')?.value || '').toLowerCase().trim();
+
+    const rows = document.querySelectorAll('#clients-table-body .client-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const rName = row.getAttribute('data-name') || '';
+        const rType = row.getAttribute('data-type') || '';
+        const rCountry = row.getAttribute('data-country') || '';
+        const rInterest = row.getAttribute('data-interest') || '';
+        const rStage = (row.getAttribute('data-stage') || 'none').toLowerCase();
+        const rMayer = (row.getAttribute('data-mayer') || '').toLowerCase();
+        const rLast = row.getAttribute('data-last') || '';
+        const rNextDate = row.getAttribute('data-next-date') || '';
+        const rNextType = row.getAttribute('data-next-type') || '';
+
+        let match = true;
+
+        if (nameVal && !rName.includes(nameVal)) match = false;
+        if (typeVal && !rType.includes(typeVal)) match = false;
+        if (countryVal && !rCountry.includes(countryVal)) match = false;
+        if (interestVal && rInterest !== interestVal) match = false;
+        if (stageVal && rStage !== stageVal) match = false;
+        if (mayerVal && rMayer !== mayerVal) match = false;
+        if (lastVal && !rLast.includes(lastVal)) match = false;
+        if (nextTypeVal) {
+            if (nextTypeVal === 'no_event') { if (rNextDate !== '') match = false; } 
+            else { if (rNextType !== nextTypeVal) match = false; }
+        }
+
+        if (match) { row.style.display = ''; visibleCount++; } 
+        else { row.style.display = 'none'; }
+    });
+    const counter = document.getElementById('visible-clients-count');
+    if (counter) counter.innerText = visibleCount;
+}
+
+function resetTableFilters() {
+    if (document.getElementById('filter-name')) document.getElementById('filter-name').value = '';
+    if (document.getElementById('filter-type')) document.getElementById('filter-type').value = '';
+    if (document.getElementById('filter-country')) document.getElementById('filter-country').value = '';
+    if (document.getElementById('filter-interest')) document.getElementById('filter-interest').value = '';
+    if (document.getElementById('filter-stage')) document.getElementById('filter-stage').value = '';
+    if (document.getElementById('filter-mayer')) document.getElementById('filter-mayer').value = '';
+    if (document.getElementById('filter-last')) document.getElementById('filter-last').value = '';
+    if (document.getElementById('filter-next-type')) document.getElementById('filter-next-type').value = '';
+    filterClientsTable();
+}
+
+function switchWindow(targetWinId) {
+    document.querySelectorAll('.crm-window').forEach(win => win.style.display = 'none');
+    document.getElementById('window-' + targetWinId).style.display = 'block';
+    ['today-win', 'calendar-win', 'all-win', 'finance-win', 'tasks-win', 'demand-win'].forEach(id => {
+        let btn = document.getElementById('btn-' + id);
+        if (btn) btn.className = "btn btn-sm btn-outline-secondary fw-semibold px-3";
+    });
+    let activeBtn = document.getElementById('btn-' + targetWinId);
+    if (activeBtn) {
+        if(targetWinId === 'today-win') activeBtn.className = "btn btn-sm btn-warning text-dark fw-bold px-3 shadow-sm";
+        else if(targetWinId === 'calendar-win') activeBtn.className = "btn btn-sm btn-primary fw-bold px-3 shadow-sm";
+        else if(targetWinId === 'all-win') activeBtn.className = "btn btn-sm btn-brand fw-bold px-3 shadow-sm";
+        else if(targetWinId === 'finance-win') activeBtn.className = "btn btn-sm btn-primary fw-bold px-3 shadow-sm";
+        else if(targetWinId === 'tasks-win') activeBtn.className = "btn btn-sm btn-dark text-white fw-bold px-3 shadow-sm";
+        else if(targetWinId === 'demand-win') activeBtn.className = "btn btn-sm btn-danger fw-bold px-3 shadow-sm";
+    }
+}
+
+// КАЛЕНДАР ДІЙ
+function changeMonth(direction) {
+    currentMonth += direction;
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    renderCalendar();
+}
+
+function renderCalendar() {
+    const labelEl = document.getElementById('calendar-month-year');
+    if (!labelEl) return;
+    labelEl.innerText = monthNames[currentMonth] + " " + currentYear;
+    const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay();
+    const shiftDay = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
+    const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+    let gridHtml = "<tr>";
+    for (let i = 0; i < shiftDay; i++) { gridHtml += "<td></td>"; }
+    let currentDayCount = shiftDay;
+    for (let day = 1; day <= totalDays; day++) {
+        if (currentDayCount === 7) { gridHtml += "</tr><tr>"; currentDayCount = 0; }
+        let mNum = currentMonth + 1;
+        let mStr = mNum < 10 ? "0" + mNum : mNum;
+        let dStr = day < 10 ? "0" + day : day;
+        let dateKey = `${currentYear}-${mStr}-${dStr}`;
+        let cellStyle = "cursor: pointer; padding: 12px 0; font-weight: normal;";
+        let badgeDot = "";
+        let dayTasks = allClients.filter(c => c.next_event_date === dateKey);
+        if (dayTasks.length > 0) {
+            cellStyle += " background-color: #dcfce7; font-weight: bold; color: #15803d; border: 1.5px solid #86efac;";
+            badgeDot = `<br><span class='badge bg-danger rounded-pill' style='font-size:0.65rem; padding: 2px 5px;'>${dayTasks.length}</span>`;
+        }
+        gridHtml += `<td style="${cellStyle}" onclick="showTasksForDate('${dateKey}')">${day}${badgeDot}</td>`;
+        currentDayCount++;
+    }
+    while (currentDayCount < 7 && currentDayCount > 0) { gridHtml += "<td></td>"; currentDayCount++; }
+    gridHtml += "</tr>";
+    document.getElementById('calendar-grid-body').innerHTML = gridHtml;
+}
+
+function showTasksForDate(dateStr) {
+    document.getElementById('selected-date-title').innerHTML = `📅 Заплановані дії на: <span class="badge bg-light text-dark px-2 py-1">${dateStr}</span>`;
+    const filtered = allClients.filter(c => c.next_event_date === dateStr);
+    const box = document.getElementById('calendar-tasks-box');
+    if (filtered.length === 0) {
+        box.innerHTML = `<div class="alert alert-info text-center m-3 fw-bold">ℹ️ На цей день дій не заплановано.</div>`;
+        return;
+    }
+    let html = `<ul class="list-group list-group-flush" style="font-size:0.9rem;">`;
+    filtered.forEach(c => {
+        let icon = c.next_event_type === 'call' ? '📞 Дзвінок' : c.next_event_type === 'visit' ? '🚗 Візит' : '✉️ Лист';
+        html += `
+            <li class="list-group-item d-flex justify-content-between align-items-center p-2.5 border-bottom">
+                <div><a href="/client/${c.id}" class="fw-bold text-decoration-none text-dark fs-6">🏢 ${c.name}</a></div>
+                <div class="d-flex align-items-center gap-2"><span class="badge badge-soft-primary">${icon}</span><a href="/client/${c.id}" class="btn btn-xs btn-dark fw-bold px-2 py-0.5 shadow-xs">Картка</a></div>
+            </li>`;
+    });
+    html += `</ul>`;
+    box.innerHTML = html;
+}
+
+// ВДОСКОНАЛЕНИЙ КАЛЕНДАР ЗАДАЧНИКА
+function renderTasksCalendar() {
+    const labelEl = document.getElementById('tasks-calendar-title');
+    if (!labelEl) return;
+    labelEl.innerText = monthNames[tasksMonth] + " " + tasksYear;
+    const firstDayIndex = new Date(tasksYear, tasksMonth, 1).getDay();
+    const shiftDay = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
+    const totalDays = new Date(tasksYear, tasksMonth + 1, 0).getDate();
+    let gridHtml = "<tr>";
+    for (let i = 0; i < shiftDay; i++) { gridHtml += "<td></td>"; }
+    let currentDayCount = shiftDay;
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    for (let day = 1; day <= totalDays; day++) {
+        if (currentDayCount === 7) { gridHtml += "</tr><tr>"; currentDayCount = 0; }
+        let mNum = tasksMonth + 1;
+        let mStr = mNum < 10 ? "0" + mNum : mNum;
+        let dStr = day < 10 ? "0" + day : day;
+        let dateKey = `${tasksYear}-${mStr}-${dStr}`;
+        
+        let dayTasks = allTasksList.filter(t => t.deadline === dateKey);
+        let activeTasks = dayTasks.filter(t => t.status === 'in_progress');
+        let completedTasks = dayTasks.filter(t => t.status === 'completed');
+        
+        let cellStyle = "";
+        let badgeHtml = "";
+        let todayClass = (today.getFullYear() === tasksYear && today.getMonth() === tasksMonth && today.getDate() === day) ? "calendar-today-highlight" : "";
+        
+        if (dayTasks.length > 0) {
+            let isOverdue = activeTasks.length > 0 && dateKey < todayStr;
+            
+            if (activeTasks.length > 0) {
+                if (isOverdue) {
+                    cellStyle = 'style="background-color: #fee2e2; color: #991b1b;"';
+                    badgeHtml += `<span class="badge bg-danger text-white shadow-xs" title="Прострочено">${activeTasks.length} !</span>`;
+                } else {
+                    cellStyle = 'style="background-color: #fef9c3; color: #854d0e;"';
+                    badgeHtml += `<span class="badge bg-warning text-dark shadow-xs" title="В роботі">${activeTasks.length}</span>`;
+                }
+            }
+            
+            if (completedTasks.length > 0) {
+                if (activeTasks.length === 0) {
+                    cellStyle = 'style="background-color: #dcfce7; color: #166534;"';
+                }
+                badgeHtml += `<span class="badge bg-success text-white shadow-xs" title="Виконано">${completedTasks.length} ✔</span>`;
+            }
+            
+            if (badgeHtml !== "") {
+                badgeHtml = `<div class="tasks-dot-badge">${badgeHtml}</div>`;
+            }
+        }
+        
+        gridHtml += `<td ${cellStyle} class="${todayClass}" onclick="selectTasksDate('${dateKey}')">${day}${badgeHtml}</td>`;
+        currentDayCount++;
+    }
+    while (currentDayCount < 7 && currentDayCount > 0) { gridHtml += "<td></td>"; currentDayCount++; }
+    gridHtml += "</tr>";
+    document.getElementById('tasks-calendar-body').innerHTML = gridHtml;
+}
+
+function changeTasksMonth(direction) {
+    tasksMonth += direction;
+    if (tasksMonth > 11) { tasksMonth = 0; tasksYear++; }
+    if (tasksMonth < 0) { tasksMonth = 11; tasksYear--; }
+    renderTasksCalendar();
+}
+
+function selectTasksDate(dateStr) {
+    const parts = dateStr.split('-');
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    document.getElementById('selected-tasks-date-title').innerHTML = `📌 Справи на: <span class="badge bg-light text-dark px-2 py-1 font-monospace">${parts[2]}.${parts[1]}.${parts[0]}</span>`;
+    document.getElementById('tasks-input-date').value = dateStr;
+    const filtered = allTasksList.filter(t => t.deadline === dateStr);
+    const box = document.getElementById('tasks-list-box');
+    if (filtered.length === 0) {
+        box.innerHTML = `<div class="alert alert-warning text-center m-1 py-3 fw-semibold">ℹ️ Жодних завдань на цю дату немає.</div>`;
+        return;
+    }
+    let html = `<div class="list-group list-group-flush" style="font-size:0.85rem;">`;
+    filtered.forEach(t => {
+        let isDone = t.status === 'completed';
+        let isOverdue = !isDone && t.deadline < todayStr;
+        let textStyle = isDone ? 'text-decoration-line-through text-muted small' : 'text-dark fw-medium';
+        let cardBg = isDone ? 'bg-light' : isOverdue ? 'bg-danger-subtle' : 'bg-white';
+        let borderStyle = isDone ? 'border-success' : isOverdue ? 'border-danger' : 'border-primary';
+        let authorBadge = t.author === 'CEO' ? '<span class="badge bg-danger">📁 CEO</span>' : '<span class="badge bg-primary">💼 Продажі</span>';
+        let statusBadge = isDone ? '<span class="badge badge-soft-success">✔ Виконано</span>' : isOverdue ? '<span class="badge badge-soft-danger">⚠️ Прострочено</span>' : '<span class="badge badge-soft-warning">⏳ В роботі</span>';
+        
+        html += `
+            <div class="card mb-2 shadow-xs border-start ${borderStyle} border-3 ${cardBg}">
+                <div class="card-body p-2.5 d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                        <div class="mb-1 d-flex gap-1 align-items-center">${authorBadge} ${statusBadge}</div>
+                        <p class="mb-0 ${textStyle}">${t.text}</p>
+                    </div>
+                    <div class="d-flex flex-column gap-1">
+                        <form action="/toggle_task/${t.id}" method="POST" class="mb-0">
+                            <input type="hidden" name="current_status" value="${t.status}">
+                            <button type="submit" class="btn btn-xs ${isDone ? 'btn-outline-secondary' : 'btn-success'} py-0.5 px-1.5 fw-bold" style="font-size:0.7rem;">
+                                ${isDone ? '🔄 Повернути' : '✅ Закрити'}
+                            </button>
+                        </form>
+                        <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1" style="font-size:0.7rem;" onclick="openEditTaskModal(${t.id}, '${escapeQuotes(t.text)}', '${t.deadline || ''}', '${t.author || 'Продажі'}')">✏️</button>
+                        <form action="/delete_task/${t.id}" method="POST" class="mb-0" onsubmit="return confirm('Видалити завдання?');">
+                            <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1" style="font-size:0.7rem;">🗑️</button>
+                        </form>
+                    </div>
+                </div>
+            </div>`;
+    });
+    html += `</div>`;
+    box.innerHTML = html;
+}
+
+function escapeQuotes(str) {
+    if (!str) return '';
+    return str.replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' ');
+}
+
+function openEditTaskModal(id, text, deadline, author) {
+    document.getElementById('editTaskForm').action = `/edit_task/${id}`;
+    document.getElementById('edit_task_text').value = text;
+    document.getElementById('edit_task_deadline').value = deadline;
+    document.getElementById('edit_task_author').value = author;
+    const modal = new bootstrap.Modal(document.getElementById('editTaskModal'));
+    modal.show();
+}
+
+function syncClientId() {
+    const inputVal = document.getElementById('client_search_input').value;
+    const datalist = document.getElementById('clients_datalist');
+    const options = datalist.getElementsByTagName('option');
+    let foundId = "";
+    for (let i = 0; i < options.length; i++) { if (options[i].value === inputVal) { foundId = options[i].getAttribute('data-id'); break; } }
+    document.getElementById('real_client_id').value = foundId;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const editButtons = document.querySelectorAll('.btn-edit-finance');
+    const editModalEl = document.getElementById('editFinanceModal');
+    let editModal = null;
+    if (editModalEl) {
+        editModal = new bootstrap.Modal(editModalEl);
+    }
+
+    editButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const planId = this.getAttribute('data-id');
+            const clientName = this.getAttribute('data-client');
+            const planned = this.getAttribute('data-planned');
+            const month = this.getAttribute('data-month');
+            const actual = this.getAttribute('data-actual');
+            const date = this.getAttribute('data-date');
+
+            document.getElementById('edit_finance_client_name').innerText = clientName;
+            document.getElementById('edit_planned_amount').value = planned;
+            document.getElementById('edit_month_name').value = month;
+            document.getElementById('edit_actual_amount').value = actual;
+            document.getElementById('edit_payment_date').value = date;
+
+            const form = document.getElementById('editFinanceForm');
+            form.action = `/edit_finance_plan/${planId}`;
+
+            const deleteBtn = document.getElementById('btn_delete_finance');
+            if (deleteBtn) {
+                deleteBtn.onclick = function() {
+                    if (confirm(`Ви дійсно бажаєте видалити плановий запис для ${clientName}?`)) {
+                        const delForm = document.createElement('form');
+                        delForm.method = 'POST';
+                        delForm.action = `/delete_finance_plan/${planId}`;
+                        document.body.appendChild(delForm);
+                        delForm.submit();
+                    }
+                };
+            }
+
+            if (editModal) {
+                editModal.show();
+            }
+        });
+    });
+});
+
+window.onload = function() {
+    updateTasksDesktopBadges();
+    renderCalendar();
+    renderTasksCalendar();
+    const urlParams = new URLSearchParams(window.location.search);
+    if(urlParams.get('tab') === 'tasks') { switchWindow('tasks-win'); } 
+    else if(urlParams.get('tab') === 'finance' || urlParams.get('finance_month') !== null) { switchWindow('finance-win'); } 
+    else if(urlParams.get('tab') === 'demand') { switchWindow('demand-win'); } 
+    else { switchWindow('all-win'); }
+};
+</script>
+{% endblock %}
+
 
