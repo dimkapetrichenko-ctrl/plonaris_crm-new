@@ -22,7 +22,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'super-secret-key-change-me')
 
 CRM_USERNAME = os.environ.get('CRM_USERNAME', 'admin')
-CRM_PASSWORD = os.environ.get('CRM_PASSWORD', 'Mayer2026') 
+CRM_PASSWORD = os.environ.get('CRM_PASSWORD', 'Plonaris2026!') 
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
