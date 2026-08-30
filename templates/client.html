@@ -16,23 +16,23 @@
         <div class="d-flex gap-2">
             {% if client.is_active %}
             <button class="btn btn-sm btn-outline-danger fw-bold shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#deactivateModal">
-                ⛔ Деактивувати клієнта
+                ⛔ В архів
             </button>
             {% else %}
-            <form action="{{ url_for('toggle_client_status', client_id=client.id) }}" method="POST" class="m-0" onsubmit="return confirm('Відновити клієнта в активну базу?');">
+            <form action="{{ url_for('toggle_client_status', client_id=client.id) }}" method="POST" class="m-0" onsubmit="return confirm('Відновити партнера в активну базу?');">
                 <input type="hidden" name="action" value="activate">
                 <button type="submit" class="btn btn-sm btn-success fw-bold shadow-sm">
-                    🟢 Активувати клієнта з архіву
+                    🟢 Активувати з архіву
                 </button>
             </form>
             {% endif %}
 
             {% if client.email %}
-            <button class="btn btn-primary btn-sm fw-bold shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#emailFormCollapse" aria-expanded="false" aria-controls="emailFormCollapse">
+            <button class="btn btn-brand btn-sm fw-bold shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#emailFormCollapse" aria-expanded="false" aria-controls="emailFormCollapse">
                 ✉️ Надіслати Email
             </button>
             {% else %}
-            <button class="btn btn-secondary btn-sm fw-bold shadow-sm" disabled title="У даного клієнта не заповнено поле Email">
+            <button class="btn btn-secondary btn-sm fw-bold shadow-sm" disabled title="Не заповнено Email">
                 ✉️ Надіслати Email (Немає адреси)
             </button>
             {% endif %}
@@ -43,15 +43,15 @@
 {% if not client.is_active %}
 <div class="alert alert-danger shadow-sm py-2 px-3 mb-3 d-flex justify-content-between align-items-center">
     <div>
-        <strong>⛔ ЦЕЙ КЛІЄНТ ДЕАКТИВОВАНИЙ (В АРХІВІ).</strong>
-        <br><small><strong>Причина деактивації:</strong> {{ client.deactivation_reason or 'Не вказана' }}</small>
+        <strong>⛔ ЦЕЙ КОНТАКТ В АРХІВІ.</strong>
+        <br><small><strong>Причина:</strong> {{ client.deactivation_reason or 'Не вказана' }}</small>
     </div>
 </div>
 {% endif %}
 
 <div class="collapse my-3" id="emailFormCollapse">
     <div class="card card-body bg-dark text-white border-secondary shadow-sm">
-        <h5 class="card-title text-warning mb-3">📬 Нове повідомлення для: {{ client.name }}</h5>
+        <h5 class="card-title text-success mb-3">📬 Нове повідомлення для: {{ client.name }}</h5>
         <form action="/send_client_email" method="POST" id="crmEmailForm">
             <input type="hidden" name="client_id" value="{{ client.id }}">
             
@@ -64,26 +64,19 @@
                 <label for="subject" class="form-label mb-0.5 small text-muted">Тема листа:</label>
                 <input type="text" class="form-control form-control-sm bg-light text-dark fw-bold" id="subject" name="subject" placeholder="Введіть тему листа..." required>
             </div>
-            
-            <div class="form-check mb-3 mt-2">
-                <input class="form-check-input" type="checkbox" name="promo_banner" id="promoBannerCheck">
-                <label class="form-check-label fw-bold text-warning" for="promoBannerCheck" style="cursor: pointer;">
-                    🖼️ Додати до листа англійський промо-банер (Презентація MAYER PRO)
-                </label>
-            </div>
 
             <div class="mb-3 text-dark bg-light rounded">
                 <label class="form-label mb-0.5 small text-white bg-dark w-100 p-1 rounded-top m-0">Текст повідомлення:</label>
                 <input type="hidden" name="body" id="emailBodyHidden">
                 
                 <div id="editor-container" style="min-height: 200px; font-size: 15px; background-color: #ffffff; cursor: text;">
-                    <p>Доброго дня!</p>
+                    <p>Dzień dobry / Доброго дня!</p>
                 </div>
             </div>
             
             <div class="d-flex justify-content-end gap-2">
                 <button class="btn btn-sm btn-outline-secondary text-white" type="button" data-bs-toggle="collapse" data-bs-target="#emailFormCollapse">Скасувати</button>
-                <button type="submit" class="btn btn-sm btn-success fw-bold px-4 shadow-sm">🚀 Відправити лист через sales@</button>
+                <button type="submit" class="btn btn-sm btn-success fw-bold px-4 shadow-sm">🚀 Відправити лист</button>
             </div>
         </form>
     </div>
@@ -93,8 +86,8 @@
     <!-- ЛІВА КОЛОНКА -->
     <div class="col-md-5 mb-4">
         <div class="card shadow-sm" style="position: sticky; top: 15px; max-height: calc(100vh - 90px); display: flex; flex-direction: column;">
-            <div class="card-header bg-dark text-white py-2" style="flex-shrink: 0;">
-                <h5 class="mb-0 fs-6">⚙️ Редагувати картку: {{ client.name }}</h5>
+            <div class="card-header bg-success text-white py-2" style="flex-shrink: 0;">
+                <h5 class="mb-0 fs-6">⚙️ Картка партнера: {{ client.name }}</h5>
             </div>
             
             <div class="card-body p-3" style="font-size: 0.9rem; overflow-y: auto; flex-grow: 1;">
@@ -103,112 +96,49 @@
                         <label class="form-label mb-1"><b>Назва компанії *</b></label>
                         <input type="text" name="name" class="form-control form-control-sm" value="{{ client.name }}" required>
                     </div>
-                    
-                    <div class="mb-2">
-                        <label class="form-label mb-1"><b>Зацікавленість *</b></label>
-                        <select name="interest_level" id="client_interest_level" class="form-select form-select-sm fw-semibold" onchange="toggleDealStageVisibility()" required>
-                            <option value="не опрацьовано" {% if client.interest_level == 'не опрацьовано' %}selected{% endif %}>Прозорий — не опрацьовано</option>
-                            <option value="немає зацікавленості" {% if client.interest_level == 'немає зацікавленості' %}selected{% endif %}>Синій — немає</option>
-                            <option value="середня зацікавленість" {% if client.interest_level == 'середня зацікавленість' %}selected{% endif %}>Жовтий — середня</option>
-                            <option value="зацікавленість" {% if client.interest_level == 'зацікавленість' %}selected{% endif %}>🟢 Зелений — висока</option>
-                        </select>
-                    </div>
-
-                    <div id="deal_stage_container" class="mb-2 p-2 bg-success-subtle border border-success rounded-3" style="display: none;">
-                        <label class="form-label mb-1 fw-bold text-success-emphasis small">🎯 Етап угоди (Воронка продажу):</label>
-                        <select name="deal_stage" id="client_deal_stage" class="form-select form-select-sm fw-bold">
-                            <option value="none" {% if client.deal_stage == 'none' or not client.deal_stage %}selected{% endif %}>⚪ Немає активної угоди</option>
-                            <option value="request" {% if client.deal_stage == 'request' %}selected{% endif %}>📩 1. Запит / Підбір запчастин</option>
-                            <option value="offer_sent" {% if client.deal_stage == 'offer_sent' %}selected{% endif %}>📄 2. Рахунок (КП) надіслано</option>
-                            <option value="paid_shipped" {% if client.deal_stage == 'paid_shipped' %}selected{% endif %}>📦 3. Оплачено / Відвантажено</option>
-                            <option value="regular" {% if client.deal_stage == 'regular' %}selected{% endif %}>🤝 4. Постійний партнер</option>
-                        </select>
-                    </div>
 
                     <div class="mb-2">
-                        <label class="form-label mb-1"><b>Реєстрація на сайті MAYER PRO</b></label>
-                        <select name="mayer_reg" class="form-select form-select-sm">
-                            <option value="Так" {% if client.mayer_reg == 'Так' %}selected{% endif %}>Так</option>
-                            <option value="Ні" {% if client.mayer_reg == 'Ні' or not client.mayer_reg %}selected{% endif %}>Ні</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-2">
-                        <label class="form-label mb-1">Тип покупця</label>
-                        <select name="buyer_type" class="form-select form-select-sm">
-                            <option value="не вказано" {% if client.buyer_type == 'не вказано' or not client.buyer_type %}selected{% endif %}>не вказано</option>
+                        <label class="form-label mb-1">Тип контрагента</label>
+                        <select name="buyer_type" class="form-select form-select-sm fw-bold">
+                            <option value="постачальник" {% if client.buyer_type == 'постачальник' %}selected{% endif %}>постачальник</option>
                             <option value="інтернет-магазин" {% if client.buyer_type == 'інтернет-магазин' %}selected{% endif %}>інтернет-магазин</option>
                             <option value="гуртовий клієнт" {% if client.buyer_type == 'гуртовий клієнт' %}selected{% endif %}>гуртовий клієнт</option>
                             <option value="фермерське господарство" {% if client.buyer_type == 'фермерське господарство' %}selected{% endif %}>фермерське господарство</option>
                             <option value="виробник" {% if client.buyer_type == 'виробник' %}selected{% endif %}>виробник</option>
                             <option value="надання послуг" {% if client.buyer_type == 'надання послуг' %}selected{% endif %}>надання послуг</option>
                             <option value="роздрібний покупець" {% if client.buyer_type == 'роздрібний покупець' %}selected{% endif %}>роздрібний покупець</option>
-                            <option value="Дилер сг техніки" {% if client.buyer_type == 'Дилер сг техніки' %}selected{% endif %}>Дилер сг техніки</option>
+                            <option value="дилер сг техніки" {% if client.buyer_type == 'дилер сг техніки' %}selected{% endif %}>дилер сг техніки</option>
+                            <option value="не вказано" {% if client.buyer_type == 'не вказано' or not client.buyer_type %}selected{% endif %}>не вказано</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <label class="form-label mb-1"><b>Статус / Зацікавленість *</b></label>
+                        <select name="interest_level" id="client_interest_level" class="form-select form-select-sm fw-semibold" onchange="toggleDealStageVisibility()" required>
+                            <option value="не опрацьовано" {% if client.interest_level == 'не опрацьовано' %}selected{% endif %}>Прозорий — не опрацьовано</option>
+                            <option value="немає зацікавленості" {% if client.interest_level == 'немає зацікавленості' %}selected{% endif %}>Немає зацікавленості</option>
+                            <option value="середня зацікавленість" {% if client.interest_level == 'середня зацікавленість' %}selected{% endif %}>🟡 Середня зацікавленість</option>
+                            <option value="зацікавленість" {% if client.interest_level == 'зацікавленість' %}selected{% endif %}>🟢 Зелений — висока</option>
                         </select>
                     </div>
 
-                    <!-- ПРІОРИТЕТНІ БРЕНДИ -->
-                    <div class="mb-2">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label class="form-label mb-0"><b>Пріоритетні бренди</b></label>
-                            {% if client.website %}
-                            <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" id="btnAiBrands" onclick="runAiBrandDetection({{ client.id }})" title="Gemini перевірить сайт та оновить бренди і aftermarket операторів">
-                                ✨ ШІ-Аналіз (Бренди & Aftermarket)
-                            </button>
-                            {% endif %}
-                        </div>
-                        <div class="p-2 border rounded bg-light d-flex flex-wrap gap-3" style="font-size: 0.85rem;">
-                            {% set cb = client.brands or '' %}
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="brands" value="Vaderstad" id="b_vaderstad" {% if 'Vaderstad' in cb %}checked{% endif %}>
-                                <label class="form-check-label" for="b_vaderstad">Vaderstad</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="brands" value="Gaspardo" id="b_gaspardo" {% if 'Gaspardo' in cb %}checked{% endif %}>
-                                <label class="form-check-label" for="b_gaspardo">Gaspardo</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="brands" value="Horsch" id="b_horsch" {% if 'Horsch' in cb or 'HORSCH' in cb %}checked{% endif %}>
-                                <label class="form-check-label" for="b_horsch">Horsch</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="brands" value="Kverneland" id="b_kverneland" {% if 'Kverneland' in cb %}checked{% endif %}>
-                                <label class="form-check-label" for="b_kverneland">Kverneland</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="brands" value="Pottinger" id="b_pottinger" {% if 'Pottinger' in cb %}checked{% endif %}>
-                                <label class="form-check-label" for="b_pottinger">Pottinger</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="brands" value="Інші" id="b_other" {% if 'Інші' in cb %}checked{% endif %}>
-                                <label class="form-check-label" for="b_other">Інші</label>
-                            </div>
-                        </div>
+                    <div id="deal_stage_container" class="mb-2 p-2 bg-success-subtle border border-success rounded-3" style="display: none;">
+                        <label class="form-label mb-1 fw-bold text-success-emphasis small">🎯 Етап угоди:</label>
+                        <select name="deal_stage" id="client_deal_stage" class="form-select form-select-sm fw-bold">
+                            <option value="none" {% if client.deal_stage == 'none' or not client.deal_stage %}selected{% endif %}>⚪ Немає активної угоди</option>
+                            <option value="request" {% if client.deal_stage == 'request' %}selected{% endif %}>📩 1. Запит / Підбір</option>
+                            <option value="offer_sent" {% if client.deal_stage == 'offer_sent' %}selected{% endif %}>📄 2. Рахунок / КП</option>
+                            <option value="paid_shipped" {% if client.deal_stage == 'paid_shipped' %}selected{% endif %}>📦 3. Оплачено / Відвантажено</option>
+                            <option value="regular" {% if client.deal_stage == 'regular' %}selected{% endif %}>🤝 4. Постійний партнер</option>
+                        </select>
                     </div>
 
-                    <!-- AFTERMARKET ОПЕРАТОРИ -->
                     <div class="mb-2">
-                        <label class="form-label mb-1 fw-bold text-dark d-flex justify-content-between align-items-center">
-                            <span>⚙️ Співпраця з Aftermarket</span>
-                            <small class="text-muted fw-normal" style="font-size: 0.75rem;">клікніть тег для додавання</small>
-                        </label>
-                        
-                        <div class="mb-1.5 d-flex flex-wrap gap-1">
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.78rem;" onclick="addAftermarketTag('Granit Parts')">+ Granit</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.78rem;" onclick="addAftermarketTag('Kramp')">+ Kramp</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.78rem;" onclick="addAftermarketTag('Industriehof')">+ Industriehof</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.78rem;" onclick="addAftermarketTag('Bepco')">+ Bepco</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.78rem;" onclick="addAftermarketTag('Bellota')">+ Bellota</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.78rem;" onclick="addAftermarketTag('Frank Walz')">+ Frank Walz</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.78rem;" onclick="addAftermarketTag('Molbro')">+ Molbro</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.78rem;" onclick="addAftermarketTag('Waryński')">+ Waryński</button>
-                            <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size: 0.78rem;" onclick="addAftermarketTag('Тільки оригінал (OEM)')">+ OEM</button>
-                        </div>
-
-                        <input type="text" id="aftermarket_companies" name="aftermarket_companies" 
-                               value="{{ client.aftermarket_companies if client.aftermarket_companies and client.aftermarket_companies != '-' else '' }}" 
-                               class="form-control form-control-sm" 
-                               placeholder="Напр: Granit Parts, Bellota або нотатка...">
+                        <label class="form-label mb-1"><b>Реєстрація на PLONARIS</b></label>
+                        <select name="mayer_reg" class="form-select form-select-sm">
+                            <option value="Так" {% if client.mayer_reg == 'Так' %}selected{% endif %}>Так</option>
+                            <option value="Ні" {% if client.mayer_reg == 'Ні' or not client.mayer_reg %}selected{% endif %}>Ні</option>
+                        </select>
                     </div>
 
                     <div class="mb-2">
@@ -224,23 +154,23 @@
                         <input type="text" name="address" class="form-control form-control-sm" value="{{ client.address }}">
                     </div>
 
-                    <h6 class="text-danger mt-3 border-bottom pb-1 mb-1">👤 Контактна особа №1</h6>
-                    <div class="mb-1"><input type="text" name="contact_person" class="form-control form-control-sm" value="{{ client.contact_person }}" placeholder="Ім'я"></div>
+                    <h6 class="text-success mt-3 border-bottom pb-1 mb-1">👤 Контактна особа №1</h6>
+                    <div class="mb-1"><input type="text" name="contact_person" class="form-control form-control-sm" value="{{ client.contact_person }}" placeholder="Ім'я / ПІБ"></div>
                     <div class="mb-1"><input type="text" name="position" class="form-control form-control-sm" value="{{ client.position }}" placeholder="Посада"></div>
                     <div class="mb-1"><input type="text" name="phone" class="form-control form-control-sm" value="{{ client.phone }}" placeholder="Телефон"></div>
                     <div class="mb-1"><input type="text" name="whatsapp_1" class="form-control form-control-sm border-success text-success fw-bold" value="{{ client.whatsapp_1 or '' }}" placeholder="🟢 WhatsApp №1"></div>
                     <div class="mb-2"><input type="email" name="email" class="form-control form-control-sm" value="{{ client.email }}" placeholder="Email"></div>
 
-                    <h6 class="text-danger mt-3 border-bottom pb-1 mb-1">👤 Контактна особа №2</h6>
-                    <div class="mb-1"><input type="text" name="contact_person_2" class="form-control form-control-sm" value="{{ client.contact_person_2 }}" placeholder="Ім'я"></div>
+                    <h6 class="text-success mt-3 border-bottom pb-1 mb-1">👤 Контактна особа №2</h6>
+                    <div class="mb-1"><input type="text" name="contact_person_2" class="form-control form-control-sm" value="{{ client.contact_person_2 }}" placeholder="Ім'я / ПІБ"></div>
                     <div class="mb-1"><input type="text" name="position_2" class="form-control form-control-sm" value="{{ client.position_2 }}" placeholder="Посада"></div>
-                    <div class="mb-1"><input type="text" name="phone_2" class="form-control form-control-sm" value="{{ client.phone_2 }}" placeholder="Телефон"></div>
+                    <div class="mb-1"><input type="text" name="phone_2" class="form-control form-control-sm" value="{{ client.phone_2 }}" placeholder="Телефон / Додатковий"></div>
                     <div class="mb-1"><input type="text" name="whatsapp_2" class="form-control form-control-sm border-success text-success fw-bold" value="{{ client.whatsapp_2 or '' }}" placeholder="🟢 WhatsApp №2"></div>
                     <div class="mb-2"><input type="email" name="email_2" class="form-control form-control-sm" value="{{ client.email_2 }}" placeholder="Email"></div>
 
-                    <h6 class="text-primary mt-3 border-bottom pb-1 mb-1 d-flex justify-content-between align-items-center">
-                        <span>📅 Планування наступної дії</span>
-                        <button type="button" class="btn btn-xs btn-outline-primary py-0 px-1" data-bs-toggle="modal" data-bs-target="#workloadModal" onclick="renderWorkloadCalendar()">
+                    <h6 class="text-success mt-3 border-bottom pb-1 mb-1 d-flex justify-content-between align-items-center">
+                        <span>📅 Планування дії</span>
+                        <button type="button" class="btn btn-xs btn-outline-success py-0 px-1" data-bs-toggle="modal" data-bs-target="#workloadModal" onclick="renderWorkloadCalendar()">
                             📊 Календар навантаження
                         </button>
                     </h6>
@@ -260,12 +190,12 @@
                     <div id="workload_badge_box" class="mt-1" style="font-size: 0.78rem;"></div>
 
                     <div class="mt-3">
-                        <button type="submit" class="btn btn-sm btn-danger w-100 fw-bold">💾 Зберегти зміни</button>
+                        <button type="submit" class="btn btn-sm btn-brand w-100 fw-bold">💾 Зберегти зміни</button>
                     </div>
                 </form>
 
-                <form action="{{ url_for('delete_client', client_id=client.id) }}" method="POST" class="mt-2" onsubmit="return confirm('⚠️ УВАГА! Ви дійсно бажаєте остаточно видалити цього клієнта та всю пов\'язану історію розмов? Цю дію не можна буде скасувати!');">
-                    <button type="submit" class="btn btn-sm btn-outline-danger w-100 fw-bold" style="font-size: 0.8rem;">❌ Видалити клієнта з бази</button>
+                <form action="{{ url_for('delete_client', client_id=client.id) }}" method="POST" class="mt-2" onsubmit="return confirm('Видалити цей запис із бази?');">
+                    <button type="submit" class="btn btn-sm btn-outline-danger w-100 fw-bold" style="font-size: 0.8rem;">❌ Видалити з бази</button>
                 </form>
             </div>
         </div>
@@ -275,7 +205,7 @@
     <div class="col-md-7">
         <div id="quick_sale_card" class="card shadow-sm mb-3 border-success" style="display: none;">
             <div class="card-header bg-success text-white py-1.5 fw-bold d-flex justify-content-between align-items-center">
-                <span>💰 Швидка фіксація продажу / оплати</span>
+                <span>💰 Фіксація продажу / оплати</span>
                 <span class="badge bg-white text-success font-monospace">+ В річний план</span>
             </div>
             <div class="card-body p-2.5 bg-light-subtle" style="font-size: 0.85rem;">
@@ -287,7 +217,7 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label mb-0 small text-muted">№ Рахунку / ТТН</label>
-                            <input type="text" name="invoice_no" class="form-control form-control-sm" placeholder="напр: FV-2026/08">
+                            <input type="text" name="invoice_no" class="form-control form-control-sm" placeholder="FV-2026/...">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label mb-0 small text-muted">Дата оплати</label>
@@ -304,14 +234,14 @@
                         </div>
                     </div>
                     <button type="submit" class="btn btn-sm btn-success fw-bold w-100 mt-2 shadow-xs">
-                        🚀 Зафіксувати успішний продаж і запланувати дзвінок-контроль
+                        🚀 Зафіксувати оплату
                     </button>
                 </form>
             </div>
         </div>
 
-        <div class="card shadow-sm mb-3 border-danger">
-            <div class="card-header bg-danger text-white py-1.5 fw-bold d-flex justify-content-between align-items-center">
+        <div class="card shadow-sm mb-3 border-success">
+            <div class="card-header bg-success text-white py-1.5 fw-bold d-flex justify-content-between align-items-center">
                 <span>📦 Зафіксувати відсутній товар (упущений попит)</span>
             </div>
             <div class="card-body p-2 bg-light" style="font-size: 0.85rem;">
@@ -319,10 +249,10 @@
                     <input type="hidden" name="client_id" value="{{ client.id }}">
                     <div class="row g-2">
                         <div class="col-md-4">
-                            <input type="text" name="article" class="form-control form-control-sm fw-bold text-danger" placeholder="Артикул / OEM *" required>
+                            <input type="text" name="article" class="form-control form-control-sm fw-bold text-success" placeholder="Артикул / Назва *" required>
                         </div>
                         <div class="col-md-5">
-                            <input type="text" name="title" class="form-control form-control-sm" placeholder="Назва / Бренд (напр: Кільце Väderstad)">
+                            <input type="text" name="title" class="form-control form-control-sm" placeholder="Опис / Категорія">
                         </div>
                         <div class="col-md-3">
                             <input type="number" name="quantity" class="form-control form-control-sm fw-bold" value="1" min="1" placeholder="К-сть">
@@ -335,20 +265,20 @@
                             </select>
                         </div>
                         <div class="col-md-8">
-                            <input type="text" name="note" class="form-control form-control-sm" placeholder="Коментар (напр: запропонував аналог 428311 за 160€)">
+                            <input type="text" name="note" class="form-control form-control-sm" placeholder="Коментар...">
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-sm btn-danger fw-bold w-100 mt-2">💾 Записати дефіцит</button>
+                    <button type="submit" class="btn btn-sm btn-success fw-bold w-100 mt-2">💾 Записати дефіцит</button>
                 </form>
 
                 {% if client_lost_demand %}
                 <div class="mt-2 border-top pt-2">
-                    <div class="fw-bold text-muted mb-1" style="font-size:0.78rem;">Зафіксовані дефіцитні позиції даного клієнта:</div>
+                    <div class="fw-bold text-muted mb-1" style="font-size:0.78rem;">Зафіксовані дефіцитні позиції:</div>
                     <ul class="list-group list-group-flush" style="font-size:0.8rem;">
                         {% for item in client_lost_demand %}
                         <li class="list-group-item d-flex justify-content-between align-items-center p-1">
                             <div>
-                                <strong class="text-danger">{{ item.article }}</strong> — {{ item.title or '' }} ({{ item.quantity }} шт.)
+                                <strong class="text-success">{{ item.article }}</strong> — {{ item.title or '' }} ({{ item.quantity }} шт.)
                                 <br><span class="text-muted small">{{ item.note or '' }}</span>
                             </div>
                             <form action="/delete_lost_demand/{{ item.id }}" method="POST" onsubmit="return confirm('Видалити?');">
@@ -365,7 +295,7 @@
 
         <div class="card shadow-sm mb-3">
             <div class="card-header bg-dark text-white py-2">
-                <h5 class="mb-0 fs-6">✍️ Додати результат розмови</h5>
+                <h5 class="mb-0 fs-6">✍️ Додати результат контакту</h5>
             </div>
             <div class="card-body p-3">
                 <form method="POST">
@@ -373,11 +303,11 @@
                         <span class="fw-bold text-muted">Хто пише:</span>
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="author" value="Продажі" id="role_sales" checked onclick="localStorage.setItem('crm_role', 'Продажі')">
-                            <label class="form-check-label fw-bold text-primary" for="role_sales">💼 Продажі</label>
+                            <label class="form-check-label fw-bold text-success" for="role_sales">💼 Продажі</label>
                         </div>
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="author" value="CEO" id="role_ceo" onclick="localStorage.setItem('crm_role', 'CEO')">
-                            <label class="form-check-label fw-bold text-danger" for="role_ceo">📁 CEO</label>
+                            <label class="form-check-label fw-bold text-dark" for="role_ceo">📁 Керівництво</label>
                         </div>
                     </div>
 
@@ -398,16 +328,16 @@
                     </div>
 
                     <div class="mb-2">
-                        <textarea name="result" class="form-control" rows="3" required placeholder="Наприклад: Обговорили постачання робочих органов для Vaderstad, сформували замовлення..."></textarea>
+                        <textarea name="result" class="form-control" rows="3" required placeholder="Короткий зміст розмови чи домовленості..."></textarea>
                     </div>
-                    <button type="submit" class="btn btn-sm btn-success fw-bold px-4">Записати в історію</button>
+                    <button type="submit" class="btn btn-sm btn-brand fw-bold px-4">Записати в історію</button>
                 </form>
             </div>
         </div>
 
         <div class="card shadow-sm">
             <div class="card-header bg-secondary text-white py-2">
-                <h5 class="mb-0 fs-6">📜 Історія активностей клієнта</h5>
+                <h5 class="mb-0 fs-6">📜 Історія співпраці</h5>
             </div>
             <div class="card-body p-0">
                 <div class="list-group list-group-flush" style="max-height: 65vh; overflow-y: auto;">
@@ -417,14 +347,14 @@
                             <div>
                                 <span class="badge bg-dark font-monospace">🕒 {{ item.date }}</span>
                                 {% if item.author == 'CEO' %}
-                                <span class="badge bg-danger">📁 CEO</span>
+                                <span class="badge bg-dark">📁 Керівництво</span>
                                 {% else %}
-                                <span class="badge bg-primary">💼 Продажі</span>
+                                <span class="badge bg-success">💼 Продажі</span>
                                 {% endif %}
                             </div>
                             <div class="d-flex gap-1">
                                 <button class="btn btn-xs btn-outline-secondary py-0 px-1" style="font-size: 0.75rem;" onclick="document.getElementById('edit-neg-{{ item.id }}').style.display='block';">Редагувати</button>
-                                <form action="{{ url_for('delete_negotiation', neg_id=item.id) }}" method="POST" onsubmit="return confirm('Видалити цей запис з історії?');" style="display:inline;">
+                                <form action="{{ url_for('delete_negotiation', neg_id=item.id) }}" method="POST" onsubmit="return confirm('Видалити запис?');" style="display:inline;">
                                     <input type="hidden" name="client_id" value="{{ client.id }}">
                                     <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1" style="font-size: 0.75rem;">Видалити</button>
                                 </form>
@@ -444,7 +374,7 @@
                     {% endfor %}
                     
                     {% if not history %}
-                    <div class="text-center text-muted py-4">Історія перемовин порожня. Запишіть перший результат вище.</div>
+                    <div class="text-center text-muted py-4">Історія порожня.</div>
                     {% endif %}
                 </div>
             </div>
@@ -457,19 +387,19 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-danger">
             <div class="modal-header bg-danger text-white py-2">
-                <h6 class="modal-title fw-bold">⛔ Деактивація клієнта (Переведення в архів)</h6>
+                <h6 class="modal-title fw-bold">⛔ Деактивація (Переведення в архів)</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form action="{{ url_for('toggle_client_status', client_id=client.id) }}" method="POST">
                 <input type="hidden" name="action" value="deactivate">
                 <div class="modal-body p-3 bg-light">
-                    <p class="small text-dark mb-2">Клієнт <strong>{{ client.name }}</strong> буде прихований з головного списку та календарів, але збережеться в базі з усією історією розмов.</p>
-                    <label class="form-label mb-1 fw-bold small">Вкажіть причину деактивації:</label>
-                    <textarea name="reason" class="form-control form-control-sm" rows="3" placeholder="Наприклад: Нецільовий лід, закрили бізнес, не продають запчастини..." required></textarea>
+                    <p class="small text-dark mb-2">Контакт <strong>{{ client.name }}</strong> буде переведено в архів.</p>
+                    <label class="form-label mb-1 fw-bold small">Причина:</label>
+                    <textarea name="reason" class="form-control form-control-sm" rows="3" placeholder="Вкажіть причину..." required></textarea>
                 </div>
                 <div class="modal-footer bg-light py-2">
                     <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Скасувати</button>
-                    <button type="submit" class="btn btn-sm btn-danger fw-bold px-3">⛔ Підтвердити деактивацію</button>
+                    <button type="submit" class="btn btn-sm btn-danger fw-bold px-3">Підтвердити</button>
                 </div>
             </form>
         </div>
@@ -478,9 +408,9 @@
 
 <div class="modal fade" id="workloadModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-primary">
-            <div class="modal-header bg-primary text-white py-2">
-                <h6 class="modal-title fw-bold">📅 Оберіть вільну дату (Завантаженість подій)</h6>
+        <div class="modal-content border-success">
+            <div class="modal-header bg-success text-white py-2">
+                <h6 class="modal-title fw-bold">📅 Оберіть дату (Навантаження)</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-2 bg-light">
@@ -497,11 +427,6 @@
                     </thead>
                     <tbody id="wCalendarBody"></tbody>
                 </table>
-                <div class="d-flex justify-content-around mt-2 small text-muted" style="font-size:0.75rem;">
-                    <span>🟢 0-10 подій (Вільний день)</span>
-                    <span>🟡 11-15 подій (Помірне)</span>
-                    <span>🔴 15+ подій (Завантажений)</span>
-                </div>
             </div>
         </div>
     </div>
@@ -555,9 +480,9 @@
         if (!dateStr) { badgeBox.innerHTML = ''; return; }
         const count = eventsByDate[dateStr] || 0;
         let badgeHtml = '';
-        if (count <= 10) { badgeHtml = `<span class="badge bg-success w-100 py-1">🟢 На ${dateStr} заплановано: ${count} под. (День вільний)</span>`; } 
-        else if (count <= 15) { badgeHtml = `<span class="badge bg-warning text-dark w-100 py-1">🟡 На ${dateStr} заплановано: ${count} pop. (Помірне навантаження)</span>`; } 
-        else { badgeHtml = `<span class="badge bg-danger w-100 py-1">🔴 На ${dateStr} заплановано: ${count} под. (Високе завантаження!)</span>`; }
+        if (count <= 10) { badgeHtml = `<span class="badge bg-success w-100 py-1">🟢 На ${dateStr} заплановано: ${count} под.</span>`; } 
+        else if (count <= 15) { badgeHtml = `<span class="badge bg-warning text-dark w-100 py-1">🟡 На ${dateStr} заплановано: ${count} под.</span>`; } 
+        else { badgeHtml = `<span class="badge bg-danger w-100 py-1">🔴 На ${dateStr} заплановано: ${count} под.</span>`; }
         badgeBox.innerHTML = badgeHtml;
     }
 
@@ -613,72 +538,6 @@
         }
     }
 
-    function addAftermarketTag(tagName) {
-        const input = document.getElementById('aftermarket_companies');
-        if (!input) return;
-        let current = input.value.split(',').map(s => s.trim()).filter(s => s.length > 0 && s !== '-');
-        
-        if (!current.includes(tagName)) {
-            current.push(tagName);
-            input.value = current.join(', ');
-        }
-    }
-
-    function runAiBrandDetection(clientId) {
-        const btn = document.getElementById('btnAiBrands');
-        if (!btn) return;
-        const originalText = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '⏳ Аналізую через Gemini...';
-
-        fetch(`/detect_brands_ai/${clientId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        })
-        .then(response => response.json())
-        .then(data => {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-            
-            if (data.success) {
-                if (data.brands) {
-                    const brandsLower = data.brands.map(b => b.toLowerCase());
-                    
-                    const bVaderstad = document.getElementById('b_vaderstad');
-                    if (bVaderstad) bVaderstad.checked = brandsLower.some(b => b.includes('vaderstad'));
-                    
-                    const bGaspardo = document.getElementById('b_gaspardo');
-                    if (bGaspardo) bGaspardo.checked = brandsLower.some(b => b.includes('gaspardo'));
-                    
-                    const bHorsch = document.getElementById('b_horsch');
-                    if (bHorsch) bHorsch.checked = brandsLower.some(b => b.includes('horsch'));
-                    
-                    const bKverneland = document.getElementById('b_kverneland');
-                    if (bKverneland) bKverneland.checked = brandsLower.some(b => b.includes('kverneland'));
-                    
-                    const bPottinger = document.getElementById('b_pottinger');
-                    if (bPottinger) bPottinger.checked = brandsLower.some(b => b.includes('pottinger'));
-                }
-
-                if (data.aftermarket && data.aftermarket.length > 0) {
-                    const aftermarketInput = document.getElementById('aftermarket_companies');
-                    if (aftermarketInput) {
-                        aftermarketInput.value = data.aftermarket.join(', ');
-                    }
-                }
-
-                alert(data.message);
-            } else {
-                alert('Помилка: ' + data.message);
-            }
-        })
-        .catch(err => {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-            alert('Помилка виконання запиту до ШІ-агента.');
-        });
-    }
-
     document.addEventListener("DOMContentLoaded", function() {
         const savedRole = localStorage.getItem('crm_role');
         if (savedRole === 'CEO') { document.getElementById('role_ceo').checked = true; } else { document.getElementById('role_sales').checked = true; }
@@ -687,7 +546,6 @@
 
         toggleDealStageVisibility();
 
-        // Ініціалізація Quill при відкритті блоку відправки листа
         const emailCollapseEl = document.getElementById('emailFormCollapse');
         if (emailCollapseEl) {
             emailCollapseEl.addEventListener('shown.bs.collapse', function () {
@@ -698,7 +556,6 @@
             });
         }
 
-        // Синхронізація тексту з прихованою формою перед відправкою
         const emailForm = document.getElementById('crmEmailForm');
         if (emailForm) { 
             emailForm.onsubmit = function() { 
