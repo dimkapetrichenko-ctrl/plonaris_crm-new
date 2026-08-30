@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MAYER PRO | B2B CRM System</title>
+    <title>Plonaris | CRM System</title>
     
     <!-- Google Font: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,15 +16,15 @@
     
     <style>
         :root {
-            /* М'який комфортний фон для очей */
-            --crm-bg: #eef2f6;
+            --crm-bg: #f2f7f4;
             --crm-card-bg: #ffffff;
-            --crm-border: #dbe2ea;
+            --crm-border: #d3e2d8;
             --crm-border-subtle: #cbd5e1;
-            --crm-primary: #007a33;
-            --crm-primary-hover: #006329;
-            --crm-header-red: #dc2626;
-            --crm-text-main: #1e293b;
+            --crm-primary: #15803d;
+            --crm-primary-hover: #166534;
+            --crm-header-green: #14532d;
+            --crm-accent-gold: #b45309;
+            --crm-text-main: #0f172a;
             --crm-text-muted: #64748b;
         }
 
@@ -35,27 +35,26 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Червона верхня навігаційна панель */
+        /* Зелена фірмова навігаційна панель */
         .navbar-custom {
-            background-color: var(--crm-header-red);
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+            background: linear-gradient(135deg, #14532d 0%, #166534 100%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 14px rgba(20, 83, 45, 0.25);
         }
 
-        /* Збільшений білий логотип */
-        .brand-logo-white {
-            height: 38px;
-            width: auto;
-            filter: brightness(0) invert(1);
-            display: inline-block;
+        .brand-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: #ffffff;
         }
 
-        /* Картки та панелі */
+        /* Картки */
         .card {
             background: var(--crm-card-bg);
             border: 1px solid var(--crm-border);
             border-radius: 12px;
-            box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.04);
+            box-shadow: 0 2px 5px 0 rgba(0, 0, 0, 0.03);
             transition: all 0.2s ease;
         }
         .card-header {
@@ -82,12 +81,12 @@
         }
 
         .btn-header-exit {
-            background-color: rgba(0, 0, 0, 0.2);
+            background-color: rgba(255, 255, 255, 0.15);
             color: #ffffff;
-            border: 1px solid rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
         .btn-header-exit:hover {
-            background-color: #000000;
+            background-color: rgba(0, 0, 0, 0.3);
             color: #ffffff;
         }
 
@@ -110,10 +109,10 @@
             transition: background-color 0.15s ease;
         }
         .table tbody tr:hover {
-            background-color: #f1f5f9;
+            background-color: #f1f8f4;
         }
 
-        /* Soft Badges */
+        /* М'які бейджі */
         .badge-soft-success { background-color: #dcfce7; color: #15803d; }
         .badge-soft-warning { background-color: #fef9c3; color: #854d0e; }
         .badge-soft-danger { background-color: #fee2e2; color: #b91c1c; }
@@ -127,16 +126,17 @@
         }
         .form-control:focus, .form-select:focus {
             border-color: var(--crm-primary);
-            box-shadow: 0 0 0 3px rgba(0, 122, 51, 0.15);
+            box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.18);
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom py-2 px-4 mb-4">
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom py-2.5 px-4 mb-4">
         <div class="container-fluid">
             <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-white" href="/">
-                <img src="/static/logotipnew.png" alt="MAYER PRO" class="brand-logo-white">
-                <span class="badge bg-dark text-white text-uppercase ms-1" style="font-size: 0.65rem; letter-spacing: 0.5px;">B2B CRM</span>
+                <i class="bi bi-tree-fill text-success fs-4 bg-white rounded-circle p-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"></i>
+                <span class="brand-title">PLONARIS</span>
+                <span class="badge bg-success-subtle text-success text-uppercase ms-1 border border-success fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">CRM System</span>
             </a>
             <div class="d-flex align-items-center gap-2">
                 <a href="/logout" class="btn btn-sm btn-header-exit d-flex align-items-center gap-1 fw-semibold">
