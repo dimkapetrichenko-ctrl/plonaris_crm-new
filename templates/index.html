@@ -50,7 +50,7 @@
         <div class="card p-1">
             <div class="d-flex flex-wrap gap-2 justify-content-center align-items-center">
                 <button onclick="switchWindow('all-win')" id="btn-all-win" class="btn btn-sm btn-brand fw-bold px-3 shadow-sm">
-                    <i class="bi bi-people me-1"></i> Список клієнтів
+                    <i class="bi bi-people me-1"></i> Список партнерів
                 </button>
                 <button onclick="switchWindow('today-win')" id="btn-today-win" class="btn btn-sm btn-outline-secondary fw-semibold px-3">
                     <i class="bi bi-fire text-warning me-1"></i> Дії на сьогодні
@@ -77,20 +77,20 @@
     </div>
 </div>
 
-<!-- ВІКНО: СПИСОК КЛІЄНТІВ -->
+<!-- ВІКНО: СПИСОК КЛІЄНТІВ ТА ПОСТАЧАЛЬНИКІВ -->
 <div id="window-all-win" class="crm-window">
     <div class="card mb-2">
         <div class="card-body py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <button type="button" class="btn btn-brand btn-sm fw-bold px-3 shadow-sm d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#addClientModal">
-                    <i class="bi bi-plus-lg"></i> Новий клієнт
+                    <i class="bi bi-plus-lg"></i> Новий запис
                 </button>
                 
                 <a href="/export_excel" class="btn btn-outline-success btn-sm fw-bold px-3 shadow-sm d-flex align-items-center gap-1">
                     <i class="bi bi-file-earmark-excel"></i> Експорт Excel
                 </a>
 
-                <!-- ПЕРЕМИКАЧ СТАТУСУ КЛІЄНТІВ -->
+                <!-- ПЕРЕМИКАЧ СТАТУСУ -->
                 <form method="GET" action="/" class="d-flex align-items-center m-0">
                     <input type="hidden" name="search" value="{{ search_query }}">
                     <input type="hidden" name="interest" value="{{ interest_filter }}">
@@ -111,7 +111,7 @@
 
             <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-light text-dark border px-3 py-2 font-monospace" style="font-size: 0.82rem;">
-                    Відображено: <span id="visible-clients-count" class="text-success fw-bold">{{ clients|length }}</span> лідів
+                    Відображено: <span id="visible-clients-count" class="text-success fw-bold">{{ clients|length }}</span> записів
                 </span>
                 <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetTableFilters()" title="Скинути фільтри">
                     <i class="bi bi-arrow-counterclockwise"></i> Скинути
@@ -128,9 +128,9 @@
                         <thead>
                             <tr class="header-titles-row">
                                 <th style="width: 15%;">Компанія</th>
-                                <th style="width: 13%;">Тип клієнта</th>
+                                <th style="width: 13%;">Тип контакту</th>
                                 <th style="width: 10%;">Країна</th>
-                                <th style="text-align: center; width: 12%;">Зацікавленість</th>
+                                <th style="text-align: center; width: 12%;">Статус</th>
                                 <th style="text-align: center; width: 14%;">Етап угоди</th>
                                 <th style="text-align: center; width: 7%;">PLONARIS</th>
                                 <th style="width: 18%;">Опис активності</th>
@@ -144,13 +144,14 @@
                                 <th>
                                     <select id="filter-type" class="form-select form-select-sm" onchange="filterClientsTable()">
                                         <option value="">Всі типи</option>
+                                        <option value="постачальник">постачальник</option>
                                         <option value="інтернет-магазин">інтернет-магазин</option>
                                         <option value="гуртовий клієнт">гуртовий клієнт</option>
                                         <option value="фермерське господарство">фермерське господарство</option>
                                         <option value="виробник">виробник</option>
                                         <option value="надання послуг">надання послуг</option>
                                         <option value="роздрібний покупець">роздрібний покупець</option>
-                                        <option value="Дилер сг техніки">Дилер сг техніки</option>
+                                        <option value="дилер сг техніки">дилер сг техніки</option>
                                         <option value="не вказано">не вказано</option>
                                     </select>
                                 </th>
@@ -238,7 +239,9 @@
                                 </td>
                                 
                                 <td>
-                                    <span class="badge badge-soft-secondary px-1.5 py-0.5 text-truncate d-inline-block" style="max-width: 120px;">{{ client.buyer_type }}</span>
+                                    <span class="badge {% if client.buyer_type == 'постачальник' %}bg-success-subtle text-success border border-success{% else %}badge-soft-secondary{% endif %} px-1.5 py-0.5 text-truncate d-inline-block" style="max-width: 120px;">
+                                        {{ client.buyer_type }}
+                                    </span>
                                 </td>
                                 
                                 <td><span class="badge badge-soft-secondary px-1.5 py-0.5 text-truncate d-inline-block" style="max-width: 95px;">📍 {{ client.country or '-' }}</span></td>
@@ -252,9 +255,9 @@
 
                                 <td style="text-align: center;">
                                     {% if client.deal_stage == 'offer_sent' %}
-                                        <span class="badge bg-warning text-dark border border-dark w-100 py-1 shadow-xs fw-bold">📄 Рахунок (КП)</span>
+                                        <span class="badge bg-warning text-dark border border-dark w-100 py-1 shadow-xs fw-bold">📄 Рахунок</span>
                                     {% elif client.deal_stage == 'request' %}
-                                        <span class="badge bg-info-subtle text-info border border-info w-100 py-1 fw-bold">📩 Запит/Підбір</span>
+                                        <span class="badge bg-info-subtle text-info border border-info w-100 py-1 fw-bold">📩 Запит</span>
                                     {% elif client.deal_stage == 'paid_shipped' %}
                                         <span class="badge bg-success text-white w-100 py-1 fw-bold">📦 Оплачено</span>
                                     {% elif client.deal_stage == 'regular' %}
@@ -295,7 +298,7 @@
                             {% endfor %}
                             
                             {% if not clients %}
-                            <tr><td colspan="9" class="text-center text-muted py-4">База клієнтів порожня.</td></tr>
+                            <tr><td colspan="9" class="text-center text-muted py-4">База контактів порожня.</td></tr>
                             {% endif %}
                         </tbody>
                     </table>
@@ -336,7 +339,7 @@
                     <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
                         <thead class="table-light">
                             <tr>
-                                <th>Дата</th><th>Артикул</th><th>Назва/Бренд</th><th>К-сть</th><th>Клієнт</th><th>Статус</th><th>Коментар</th><th>Дія</th>
+                                <th>Дата</th><th>Артикул</th><th>Назва/Бренд</th><th>К-сть</th><th>Партнер</th><th>Статус</th><th>Коментар</th><th>Дія</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -433,7 +436,7 @@
         <div class="table-responsive" style="max-height: 82vh; overflow-y: auto;">
             <table class="table table-hover align-middle mb-0" style="font-size: 0.95rem;">
                 <thead class="table-dark">
-                    <tr><th>Компанія</th><th>Тип клієнта</th><th>Країна</th><th>Тип дії</th><th>Дія</th></tr>
+                    <tr><th>Компанія</th><th>Тип</th><th>Країна</th><th>Тип дії</th><th>Дія</th></tr>
                 </thead>
                 <tbody>
                     {% set today_count = namespace(value=0) %}
@@ -504,7 +507,7 @@
                 <div class="card-body p-3 bg-light-subtle" style="font-size: 0.85rem;">
                     <form action="/add_finance_plan" method="POST" onsubmit="syncClientId()">
                         <div class="mb-2">
-                            <label class="form-label mb-0 fw-bold">Назва клієнта:</label>
+                            <label class="form-label mb-0 fw-bold">Назва партнера:</label>
                             <input type="text" id="client_search_input" class="form-control form-control-sm" placeholder="🔍 Почніть писати..." list="clients_datalist" oninput="syncClientId()" required autocomplete="off">
                             <input type="hidden" id="real_client_id" name="client_id">
                             <datalist id="clients_datalist">
@@ -557,7 +560,7 @@
                     <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem; width:100%;">
                         <thead class="table-light position-sticky top-0">
                             <tr>
-                                <th>Назва клієнта</th><th>Країна</th><th class="text-end text-success">Заплановано, EUR</th><th>Місяць</th><th class="text-end text-success">Фактично, EUR</th><th>Дата надходження</th><th class="text-center">Дія</th>
+                                <th>Назва партнера</th><th>Країна</th><th class="text-end text-success">Заплановано, EUR</th><th>Місяць</th><th class="text-end text-success">Фактично, EUR</th><th>Дата надходження</th><th class="text-center">Дія</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -594,12 +597,12 @@
     </div>
 </div>
 
-<!-- МОДАЛЬНЕ ВІКНО СТВОРЕННЯ НОВОГО КЛІЄНТА -->
+<!-- МОДАЛЬНЕ ВІКНО СТВОРЕННЯ НОВОГО ЗАПИСУ -->
 <div class="modal fade" id="addClientModal" tabindex="-1" aria-labelledby="addClientModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-dark text-white py-2.5">
-                <h5 class="modal-title fw-bold" id="addClientModalLabel">➕ Створення картки нового клієнта</h5>
+                <h5 class="modal-title fw-bold" id="addClientModalLabel">➕ Створення картки нового партнера</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="/add_client" method="POST" class="mb-0">
@@ -610,42 +613,36 @@
                             <input type="text" name="name" class="form-control form-control-sm" required placeholder="Введіть назву компанії">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label mb-0 fw-bold">Етап угоди</label>
-                            <select name="deal_stage" class="form-select form-select-sm fw-bold">
-                                <option value="none" selected>⚪ Немає активної угоди</option>
-                                <option value="request">📩 1. Запит / Підбір</option>
-                                <option value="offer_sent">📄 2. Рахунок (КП) надіслано</option>
-                                <option value="paid_shipped">📦 3. Оплачено / Відвантажено</option>
-                                <option value="regular">🤝 4. Постійний партнер</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label mb-0 fw-bold">Зацікавленість *</label>
-                            <select name="interest_level" class="form-select form-select-sm" required>
-                                <option value="не опрацьовано" selected>Прозорий — не опрацьовано</option>
-                                <option value="немає зацікавленості">Немає зацікавленості</option>
-                                <option value="середня зацікавленість">Середня зацікавленість</option>
-                                <option value="зацікавленість">🟢 Зелений — висока</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label mb-0 fw-bold">Реєстрація на сайті PLONARIS</label>
-                            <select name="mayer_reg" class="form-select form-select-sm">
-                                <option value="Ні" selected>Ні</option>
-                                <option value="Так">Так</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label mb-0">Тип покупця</label>
-                            <select name="buyer_type" class="form-select form-select-sm">
-                                <option value="не вказано" selected>не вказано</option>
+                            <label class="form-label mb-0 fw-bold">Тип контрагента</label>
+                            <select name="buyer_type" class="form-select form-select-sm fw-bold">
+                                <option value="постачальник" selected>постачальник</option>
                                 <option value="інтернет-магазин">інтернет-магазин</option>
                                 <option value="гуртовий клієнт">гуртовий клієнт</option>
                                 <option value="фермерське господарство">фермерське господарство</option>
                                 <option value="виробник">виробник</option>
                                 <option value="надання послуг">надання послуг</option>
                                 <option value="роздрібний покупець">роздрібний покупець</option>
-                                <option value="Дилер сг техніки">Дилер сг техніки</option>
+                                <option value="дилер сг техніки">дилер сг техніки</option>
+                                <option value="не вказано">не вказано</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label mb-0 fw-bold">Статус / Зацікавленість *</label>
+                            <select name="interest_level" class="form-select form-select-sm" required>
+                                <option value="не опрацьовано">Прозорий — не опрацьовано</option>
+                                <option value="немає зацікавленості">Немає зацікавленості</option>
+                                <option value="середня зацікавленість" selected>🟡 Середня зацікавленість</option>
+                                <option value="зацікавленість">🟢 Зелений — висока</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label mb-0 fw-bold">Етап співпраці</label>
+                            <select name="deal_stage" class="form-select form-select-sm fw-bold">
+                                <option value="none" selected>⚪ Немає активної угоди</option>
+                                <option value="request">📩 1. Запит / Підбір</option>
+                                <option value="offer_sent">📄 2. Рахунок / КП</option>
+                                <option value="paid_shipped">📦 3. Оплачено / Відвантажено</option>
+                                <option value="regular">🤝 4. Постійний партнер</option>
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -799,7 +796,7 @@
     }
 
     .tasks-grid td { height: 54px; position: relative; cursor: pointer; font-weight: 500; vertical-align: top; padding-top: 5px; }
-    .tasks-grid td:hover { background-color: #f0fdf4 !important; }
+    .tasks-grid td:hover { background-color: #f0f8f1 !important; }
     .tasks-dot-badge { 
         position: absolute; 
         bottom: 3px; 
@@ -812,7 +809,7 @@
         align-items: center; 
         font-weight: bold; 
     }
-    .calendar-today-highlight { outline: 2px solid #166534 !important; outline-offset: -2px; }
+    .calendar-today-highlight { outline: 2px solid #2D7F35 !important; outline-offset: -2px; }
 </style>
 
 <script>
@@ -963,7 +960,7 @@ function renderCalendar() {
         let badgeDot = "";
         let dayTasks = allClients.filter(c => c.next_event_date === dateKey);
         if (dayTasks.length > 0) {
-            cellStyle += " background-color: #dcfce7; font-weight: bold; color: #15803d; border: 1.5px solid #86efac;";
+            cellStyle += " background-color: #def0e1; font-weight: bold; color: #2D7F35; border: 1.5px solid #86efac;";
             badgeDot = `<br><span class='badge bg-success rounded-pill' style='font-size:0.65rem; padding: 2px 5px;'>${dayTasks.length}</span>`;
         }
         gridHtml += `<td style="${cellStyle}" onclick="showTasksForDate('${dateKey}')">${day}${badgeDot}</td>`;
@@ -1038,7 +1035,7 @@ function renderTasksCalendar() {
             
             if (completedTasks.length > 0) {
                 if (activeTasks.length === 0) {
-                    cellStyle = 'style="background-color: #dcfce7; color: #166534;"';
+                    cellStyle = 'style="background-color: #def0e1; color: #166534;"';
                 }
                 badgeHtml += `<span class="badge bg-success text-white shadow-xs" title="Виконано">${completedTasks.length} ✔</span>`;
             }
