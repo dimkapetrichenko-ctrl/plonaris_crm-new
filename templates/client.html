@@ -9,7 +9,7 @@
         <div class="d-flex align-items-center gap-2">
             <a href="{{ url_for('index') }}" class="btn btn-sm btn-secondary">◀ Назад до списку</a>
             <span class="badge bg-success-subtle text-success border border-success px-3 py-1.5 font-monospace fw-bold" style="font-size: 0.85rem;">
-                🏆 Угод: <strong>{{ deal_count or 0 }}</strong> | Оплачено: <strong>{{ "{:,.2f}".format(deal_total_sum or 0) }} €</strong>
+                🏆 Оплат: <strong>{{ deal_count or 0 }}</strong> | Сума: <strong>{{ "{:,.2f}".format(deal_total_sum or 0) }} zł</strong>
             </span>
         </div>
         
@@ -97,7 +97,6 @@
                         <input type="text" name="name" class="form-control form-control-sm fw-bold" value="{{ client.name }}" required>
                     </div>
 
-                    <!-- ПОЛЕ NIP (TAX NUMBER) -->
                     <div class="mb-2">
                         <label class="form-label mb-1"><b>NIP / TAX Number</b></label>
                         <input type="text" name="nip" class="form-control form-control-sm font-monospace text-success fw-bold" value="{{ client.nip or '' }}" placeholder="напр. PL1234567890">
@@ -162,7 +161,7 @@
                     <h6 class="text-success mt-3 border-bottom pb-1 mb-1">👤 Контактна особа №2</h6>
                     <div class="mb-1"><input type="text" name="contact_person_2" class="form-control form-control-sm" value="{{ client.contact_person_2 }}" placeholder="Ім'я / ПІБ"></div>
                     <div class="mb-1"><input type="text" name="position_2" class="form-control form-control-sm" value="{{ client.position_2 }}" placeholder="Посада"></div>
-                    <div class="mb-1"><input type="text" name="phone_2" class="form-control form-control-sm" value="{{ client.phone_2 }}" placeholder="Телефон / Додатковий"></div>
+                    <div class="mb-1"><input type="text" name="phone_2" class="form-control form-control-sm" value="{{ client.phone_2 }}" placeholder="Телефон"></div>
                     <div class="mb-1"><input type="text" name="whatsapp_2" class="form-control form-control-sm border-success text-success fw-bold" value="{{ client.whatsapp_2 or '' }}" placeholder="🟢 WhatsApp №2"></div>
                     <div class="mb-2"><input type="email" name="email_2" class="form-control form-control-sm" value="{{ client.email_2 }}" placeholder="Email"></div>
 
@@ -210,8 +209,8 @@
                 <form action="/add_quick_sale/{{ client.id }}" method="POST">
                     <div class="row g-2">
                         <div class="col-md-3">
-                            <label class="form-label mb-0 small text-muted">Сума, EUR *</label>
-                            <input type="number" step="0.01" name="amount" class="form-control form-control-sm fw-bold text-success" placeholder="0.00 €" required>
+                            <label class="form-label mb-0 small text-muted">Сума, PLN (zł) *</label>
+                            <input type="number" step="0.01" name="amount" class="form-control form-control-sm fw-bold text-success" placeholder="0.00 zł" required>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label mb-0 small text-muted">№ Рахунку / ТТН</label>
@@ -232,7 +231,7 @@
                         </div>
                     </div>
                     <button type="submit" class="btn btn-sm btn-success fw-bold w-100 mt-2 shadow-xs">
-                        🚀 Зафіксувати оплату
+                        🚀 Зафіксувати оплату в PLN
                     </button>
                 </form>
             </div>
