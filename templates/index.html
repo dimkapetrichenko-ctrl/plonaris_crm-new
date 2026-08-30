@@ -53,7 +53,7 @@
                     <i class="bi bi-people me-1"></i> Список клієнтів
                 </button>
                 <button onclick="switchWindow('today-win')" id="btn-today-win" class="btn btn-sm btn-outline-secondary fw-semibold px-3">
-                    <i class="bi bi-fire text-danger me-1"></i> Дії на сьогодні
+                    <i class="bi bi-fire text-warning me-1"></i> Дії на сьогодні
                 </button>
                 <button onclick="switchWindow('calendar-win')" id="btn-calendar-win" class="btn btn-sm btn-outline-secondary fw-semibold px-3">
                     <i class="bi bi-calendar3 me-1"></i> Календар дій
@@ -82,10 +82,14 @@
     <div class="card mb-2">
         <div class="card-body py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div class="d-flex align-items-center gap-2 flex-wrap">
-                <button type="button" class="btn btn-danger btn-sm fw-bold px-3 shadow-sm d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#addClientModal">
+                <button type="button" class="btn btn-brand btn-sm fw-bold px-3 shadow-sm d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#addClientModal">
                     <i class="bi bi-plus-lg"></i> Новий клієнт
                 </button>
                 
+                <a href="/export_excel" class="btn btn-outline-success btn-sm fw-bold px-3 shadow-sm d-flex align-items-center gap-1">
+                    <i class="bi bi-file-earmark-excel"></i> Експорт Excel
+                </a>
+
                 <!-- ПЕРЕМИКАЧ СТАТУСУ КЛІЄНТІВ -->
                 <form method="GET" action="/" class="d-flex align-items-center m-0">
                     <input type="hidden" name="search" value="{{ search_query }}">
@@ -95,11 +99,11 @@
                         <button type="submit" name="status_view" value="active" class="btn {% if status_view == 'active' or not status_view %}btn-success fw-bold{% else %}btn-outline-secondary{% endif %}">
                             🟢 Активні
                         </button>
-                        <button type="submit" name="status_view" value="archived" class="btn {% if status_view == 'archived' %}btn-danger fw-bold{% else %}btn-outline-secondary{% endif %}">
-                            ⛔ Архів
+                        <button type="submit" name="status_view" value="archived" class="btn {% if status_view == 'archived' %}btn-secondary fw-bold{% else %}btn-outline-secondary{% endif %}">
+                            📁 Архів
                         </button>
                         <button type="submit" name="status_view" value="all" class="btn {% if status_view == 'all' %}btn-dark fw-bold{% else %}btn-outline-secondary{% endif %}">
-                            📁 Усі
+                            Всі
                         </button>
                     </div>
                 </form>
@@ -107,7 +111,7 @@
 
             <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-light text-dark border px-3 py-2 font-monospace" style="font-size: 0.82rem;">
-                    Відображено: <span id="visible-clients-count" class="text-primary fw-bold">{{ clients|length }}</span> лідів
+                    Відображено: <span id="visible-clients-count" class="text-success fw-bold">{{ clients|length }}</span> лідів
                 </span>
                 <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetTableFilters()" title="Скинути фільтри">
                     <i class="bi bi-arrow-counterclockwise"></i> Скинути
@@ -123,13 +127,13 @@
                     <table class="table table-sm table-hover align-middle mb-0" id="mainClientsTable" style="font-size: 0.85rem; width: 100%;">
                         <thead>
                             <tr class="header-titles-row">
-                                <th style="width: 14%;">Компанії</th>
+                                <th style="width: 15%;">Компанія</th>
                                 <th style="width: 13%;">Тип клієнта</th>
                                 <th style="width: 10%;">Країна</th>
                                 <th style="text-align: center; width: 12%;">Зацікавленість</th>
-                                <th style="text-align: center; width: 15%;">Етап угоди</th>
-                                <th style="text-align: center; width: 6%;">MAYER</th>
-                                <th style="width: 19%;">Опис активності</th>
+                                <th style="text-align: center; width: 14%;">Етап угоди</th>
+                                <th style="text-align: center; width: 7%;">PLONARIS</th>
+                                <th style="width: 18%;">Опис активності</th>
                                 <th style="width: 11%;">Наступна дія</th>
                                 <th style="text-align: center; width: 5%;">Дія</th>
                             </tr>
@@ -161,9 +165,9 @@
                                 <th>
                                     <select id="filter-interest" class="form-select form-select-sm text-center" onchange="filterClientsTable()">
                                         <option value="">Всі статуси</option>
-                                        <option value="зацікавленість">😍 Висока</option>
-                                        <option value="середня зацікавленість">🤔 Середня</option>
-                                        <option value="немає зацікавленості">😴 Немає</option>
+                                        <option value="зацікавленість">🟢 Висока</option>
+                                        <option value="середня зацікавленість">🟡 Середня</option>
+                                        <option value="немає зацікавленості">⚪ Немає</option>
                                         <option value="не опрацьовано">❓ Не опр.</option>
                                     </select>
                                 </th>
@@ -214,9 +218,9 @@
                                 data-next-date="{{ (client.next_event_date or '')|lower }}"
                                 data-next-type="{{ (client.next_event_type or '')|lower }}">
                                 
-                                <td style="padding: 6px 8px; max-width: 150px;">
+                                <td style="padding: 6px 8px; max-width: 160px;">
                                     <a href="/client/{{ client.id }}" class="fw-bold text-decoration-none text-dark d-block text-truncate" title="{{ client.name }}">
-                                        <i class="bi bi-building text-primary"></i> {{ client.name }}
+                                        <i class="bi bi-building text-success"></i> {{ client.name }}
                                     </a>
                                     {% if not client.is_active %}
                                         <span class="badge badge-soft-danger mt-0.5" style="font-size: 0.65rem;" title="{{ client.deactivation_reason }}">⛔ Архів</span>
@@ -227,22 +231,22 @@
                                         </div>
                                     {% endif %}
                                     {% if client.website %}
-                                        <a href="{% if 'http' not in client.website %}https://{% endif %}{{ client.website }}" target="_blank" class="text-decoration-none text-primary d-block text-truncate" style="font-size: 0.70rem;" title="{{ client.website }}">
+                                        <a href="{% if 'http' not in client.website %}https://{% endif %}{{ client.website }}" target="_blank" class="text-decoration-none text-success d-block text-truncate" style="font-size: 0.70rem;" title="{{ client.website }}">
                                             <i class="bi bi-link-45deg"></i>{{ client.website | replace('https://','') | replace('http://','') | replace('www.','') }}
                                         </a>
                                     {% endif %}
                                 </td>
                                 
                                 <td>
-                                    <span class="badge badge-soft-primary px-1.5 py-0.5 text-truncate d-inline-block" style="max-width: 120px;">{{ client.buyer_type }}</span>
+                                    <span class="badge badge-soft-secondary px-1.5 py-0.5 text-truncate d-inline-block" style="max-width: 120px;">{{ client.buyer_type }}</span>
                                 </td>
                                 
                                 <td><span class="badge badge-soft-secondary px-1.5 py-0.5 text-truncate d-inline-block" style="max-width: 95px;">📍 {{ client.country or '-' }}</span></td>
                                 
                                 <td style="text-align: center;">
-                                    {% if client.interest_level == 'зацікавленість' %}<span class="badge badge-soft-success w-100 py-1 fw-bold">😍 Висока</span>
-                                    {% elif client.interest_level == 'середня зацікавленість' %}<span class="badge badge-soft-warning w-100 py-1 fw-bold">🤔 Середня</span>
-                                    {% elif client.interest_level == 'немає зацікавленості' %}<span class="badge badge-soft-primary w-100 py-1 fw-bold">😴 Немає</span>
+                                    {% if client.interest_level == 'зацікавленість' %}<span class="badge badge-soft-success w-100 py-1 fw-bold">🟢 Висока</span>
+                                    {% elif client.interest_level == 'середня зацікавленість' %}<span class="badge badge-soft-warning w-100 py-1 fw-bold">🟡 Середня</span>
+                                    {% elif client.interest_level == 'немає зацікавленості' %}<span class="badge badge-soft-secondary w-100 py-1 fw-bold">⚪ Немає</span>
                                     {% else %}<span class="badge badge-soft-secondary w-100 py-1 fw-bold">❓ Не опр.</span>{% endif %}
                                 </td>
 
@@ -276,7 +280,7 @@
                                 <td>
                                     {% if client.next_event_date %}
                                         <div class="{% if client.next_event_date == today_date %}text-danger fw-bold{% else %}text-dark{% endif %}" style="font-size: 0.75rem;">📅 {{ client.next_event_date | replace('2026-', '') }}</div>
-                                        <span class="badge {% if client.next_event_date == today_date %}bg-danger text-white{% else %}badge-soft-primary{% endif %} px-1 py-0.5" style="font-size: 0.65rem;">
+                                        <span class="badge {% if client.next_event_date == today_date %}bg-danger text-white{% else %}badge-soft-success{% endif %} px-1 py-0.5" style="font-size: 0.65rem;">
                                             {% if client.next_event_type == 'call' %}📞 Дзв.{% elif client.next_event_type == 'visit' %}🚗 Віз.{% else %}✉️ Лист{% endif %}
                                         </span>
                                     {% else %}
@@ -285,7 +289,7 @@
                                 </td>
                                 
                                 <td style="text-align: center; padding: 4px;">
-                                    <a href="/client/{{ client.id }}" class="btn btn-xs btn-outline-primary fw-medium px-1.5 py-0.5" style="font-size: 0.72rem;" title="Відкрити картку клієнта">Картка</a>
+                                    <a href="/client/{{ client.id }}" class="btn btn-xs btn-outline-success fw-semibold px-2 py-0.5" style="font-size: 0.72rem;">Картка</a>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -306,7 +310,7 @@
     <div class="row g-3">
         <div class="col-md-4">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-danger text-white py-2.5 fw-bold">🔥 ТОП-10 дефіцитних артикулів</div>
+                <div class="card-header bg-success text-white py-2.5 fw-bold">🔥 ТОП-10 дефіцитних позицій</div>
                 <div class="card-body p-2 bg-light">
                     <ul class="list-group list-group-flush rounded-3">
                         {% for top in top_demand %}
@@ -316,8 +320,8 @@
                                 <br><small class="text-muted">{{ top.title or 'Без назви' }}</small>
                             </div>
                             <div class="text-end">
-                                <span class="badge bg-danger rounded-pill fw-bold">{{ top.request_count }} зап.</span>
-                                <br><small class="fw-bold text-primary">{{ top.total_qty }} шт.</small>
+                                <span class="badge bg-success rounded-pill fw-bold">{{ top.request_count }} зап.</span>
+                                <br><small class="fw-bold text-success">{{ top.total_qty }} шт.</small>
                             </div>
                         </li>
                         {% endfor %}
@@ -339,7 +343,7 @@
                             {% for dem in lost_demand_list %}
                             <tr>
                                 <td class="font-monospace small">{{ dem.created_at }}</td>
-                                <td><strong class="text-danger">{{ dem.article }}</strong></td>
+                                <td><strong class="text-success">{{ dem.article }}</strong></td>
                                 <td>{{ dem.title or '-' }}</td>
                                 <td class="fw-bold text-center">{{ dem.quantity }}</td>
                                 <td>{% if dem.client_id %}<a href="/client/{{ dem.client_id }}" class="fw-bold text-decoration-none">🏢 {{ dem.client_name }}</a>{% else %}-{% endif %}</td>
@@ -383,44 +387,38 @@
                         </thead>
                         <tbody id="tasks-calendar-body" class="font-monospace"></tbody>
                     </table>
-                    
-                    <div class="d-flex justify-content-around mt-3 small text-muted" style="font-size: 0.76rem;">
-                        <span>🟡 <strong>Активні задачі</strong></span>
-                        <span>🔴 <strong>Прострочені</strong></span>
-                        <span>🟢 <strong>Всі виконано (✔)</strong></span>
-                    </div>
                 </div>
             </div>
         </div>
         <div class="col-md-5">
             <div class="card shadow-sm border-0 mb-3">
-                <div class="card-header bg-dark text-white py-2 fw-bold" id="selected-tasks-date-title">🎯 Оберіть день в календарі задач</div>
+                <div class="card-header bg-dark text-white py-2 fw-bold" id="selected-tasks-date-title">🎯 Справи по датах</div>
                 <div class="card-body p-2 bg-white" id="tasks-list-box" style="max-height: 42vh; overflow-y: auto;">
-                    <div class="text-center text-muted py-4 small">Натисніть на будь-яку дату зліва, щоб переглянути списки завдань.</div>
+                    <div class="text-center text-muted py-4 small">Натисніть на будь-яку дату зліва, щоб переглянути справи.</div>
                 </div>
             </div>
             <div class="card shadow-sm border-0">
-                <div class="card-header bg-light py-2 fw-bold text-uppercase small" style="font-size: 0.78rem; letter-spacing: 0.5px;">➕ Створити нове завдання</div>
+                <div class="card-header bg-light py-2 fw-bold text-uppercase small" style="font-size: 0.78rem; letter-spacing: 0.5px;">➕ Нове завдання</div>
                 <div class="card-body p-3" style="font-size: 0.85rem;">
                     <form action="/add_task" method="POST">
                         <div class="mb-2">
                             <label class="form-label mb-0 fw-bold">Зміст завдання:</label>
-                            <textarea name="text" class="form-control form-control-sm" rows="2" placeholder="Напишіть опис справи..." required></textarea>
+                            <textarea name="text" class="form-control form-control-sm" rows="2" placeholder="Напишіть опис..." required></textarea>
                         </div>
                         <div class="row g-2">
                             <div class="col-6">
                                 <label class="form-label mb-0 small text-muted">Термін виконання:</label>
-                                <input type="date" name="deadline" id="tasks-input-date" class="form-control form-control-sm fw-bold text-danger" required>
+                                <input type="date" name="deadline" id="tasks-input-date" class="form-control form-control-sm fw-bold text-success" required>
                             </div>
                             <div class="col-6">
-                                <label class="form-label mb-0 small text-muted">Відповідальна особа:</label>
+                                <label class="form-label mb-0 small text-muted">Відповідальний:</label>
                                 <select name="author" class="form-select form-select-sm fw-bold">
                                     <option value="Продажі" selected>💼 Продажі</option>
-                                    <option value="CEO">📁 CEO</option>
+                                    <option value="CEO">📁 Керівництво</option>
                                 </select>
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-sm btn-brand w-100 fw-bold mt-3">💾 Додати завдання в планер</button>
+                        <button type="submit" class="btn btn-sm btn-brand w-100 fw-bold mt-3">💾 Додати завдання</button>
                     </form>
                 </div>
             </div>
@@ -431,7 +429,7 @@
 <!-- ВІКНО: ДІЇ НА СЬОГОДНІ -->
 <div id="window-today-win" class="crm-window" style="display: none;">
     <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-warning-subtle text-dark fw-bold py-2.5 border-bottom border-warning">🚀 Завдання на сьогодні ({{ today_date }})</div>
+        <div class="card-header bg-success-subtle text-success-emphasis fw-bold py-2.5 border-bottom border-success">🚀 Завдання на сьогодні ({{ today_date }})</div>
         <div class="table-responsive" style="max-height: 82vh; overflow-y: auto;">
             <table class="table table-hover align-middle mb-0" style="font-size: 0.95rem;">
                 <thead class="table-dark">
@@ -442,12 +440,12 @@
                     {% for client in clients %}
                         {% if client.next_event_date == today_date %}
                         {% set today_count.value = today_count.value + 1 %}
-                        <tr style="background-color: #fffbeb !important;">
+                        <tr style="background-color: #f0fdf4 !important;">
                             <td><strong>{{ client.name }}</strong></td>
-                            <td><span class="badge badge-soft-primary">💼 {{ client.buyer_type }}</span></td>
+                            <td><span class="badge badge-soft-secondary">💼 {{ client.buyer_type }}</span></td>
                             <td><span class="badge badge-soft-secondary">📍 {{ client.country or '-' }}</span></td>
                             <td>
-                                <span class="badge bg-primary text-capitalize p-2">
+                                <span class="badge bg-success text-capitalize p-2">
                                     {% if client.next_event_type == 'call' %}📞 Дзвінок{% elif client.next_event_type == 'visit' %}🚗 Візит{% else %}✉️ Лист{% endif %}
                                 </span>
                             </td>
@@ -469,7 +467,7 @@
     <div class="row">
         <div class="col-md-5 mb-3">
             <div class="card shadow-sm border-0">
-                <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
+                <div class="card-header bg-success text-white py-2 d-flex justify-content-between align-items-center">
                     <button type="button" class="btn btn-sm btn-light py-0 px-2 fw-bold" onclick="changeMonth(-1)">◀</button>
                     <h6 id="calendar-month-year" class="mb-0 text-white fw-bold px-3 text-center" style="min-width: 150px;">---</h6>
                     <button type="button" class="btn btn-sm btn-light py-0 px-2 fw-bold" onclick="changeMonth(1)">▶</button>
@@ -488,7 +486,7 @@
         </div>
         <div class="col-md-7 mb-3">
             <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-dark text-white py-2 fw-bold" id="selected-date-title">🎯 Клацніть на день у календарі, щоб переглянути справи</div>
+                <div class="card-header bg-dark text-white py-2 fw-bold" id="selected-date-title">🎯 Справи на обрану дату</div>
                 <div class="card-body p-0" id="calendar-tasks-box">
                     <div class="text-center text-muted py-4">Будь ласка, оберіть дату в календарі.</div>
                 </div>
@@ -502,11 +500,11 @@
     <div class="row g-3">
         <div class="col-md-3">
             <div class="card shadow-sm border-0">
-                <div class="card-header bg-dark text-white py-2 fw-bold">➕ Додати плановий рядок</div>
+                <div class="card-header bg-dark text-white py-2 fw-bold">➕ Додати плановий показник</div>
                 <div class="card-body p-3 bg-light-subtle" style="font-size: 0.85rem;">
                     <form action="/add_finance_plan" method="POST" onsubmit="syncClientId()">
                         <div class="mb-2">
-                            <label class="form-label mb-0 fw-bold">Назва клієнта (пошук):</label>
+                            <label class="form-label mb-0 fw-bold">Назва клієнта:</label>
                             <input type="text" id="client_search_input" class="form-control form-control-sm" placeholder="🔍 Почніть писати..." list="clients_datalist" oninput="syncClientId()" required autocomplete="off">
                             <input type="hidden" id="real_client_id" name="client_id">
                             <datalist id="clients_datalist">
@@ -516,24 +514,24 @@
                             </datalist>
                         </div>
                         <div class="mb-2">
-                            <label class="form-label mb-0 small text-muted">Заплановано надходження, EUR:</label>
-                            <input type="number" step="0.01" name="planned_amount" class="form-control form-control-sm fw-bold text-primary" required>
+                            <label class="form-label mb-0 small text-muted">План надходження, EUR:</label>
+                            <input type="number" step="0.01" name="planned_amount" class="form-control form-control-sm fw-bold text-success" required>
                         </div>
                         <div class="mb-2">
                             <label class="form-label mb-0 small text-muted">Місяць:</label>
                             <select name="month_name" class="form-select form-select-sm">
                                 <option value="Січень">Січень</option><option value="Лютий">Лютий</option><option value="Березень">Березень</option>
                                 <option value="Квітень">Квітень</option><option value="Травень">Травень</option><option value="Червень">Червень</option>
-                                <option value="Липень" selected>Липень</option><option value="Серпень">Серпень</option><option value="Вересень">Вересень</option>
+                                <option value="Липень">Липень</option><option value="Серпень" selected>Серпень</option><option value="Вересень">Вересень</option>
                                 <option value="Жовтень">Жовтень</option><option value="Листопад">Листопад</option><option value="Грудень">Грудень</option>
                             </select>
                         </div>
                         <div class="mb-2">
-                            <label class="form-label mb-0 small text-muted">Фактичне надходження, EUR:</label>
+                            <label class="form-label mb-0 small text-muted">Фактично отримано, EUR:</label>
                             <input type="number" step="0.01" name="actual_amount" class="form-control form-control-sm" value="0">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label mb-0 small text-muted">Дата надходження:</label>
+                            <label class="form-label mb-0 small text-muted">Дата оплати:</label>
                             <input type="date" name="payment_date" class="form-control form-control-sm">
                         </div>
                         <button type="submit" class="btn btn-sm btn-brand w-100 fw-bold">Зберегти показник</button>
@@ -544,7 +542,7 @@
         <div class="col-md-9">
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white py-2.5 d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom">
-                    <span class="fw-bold text-dark">📋 Зведена відомість річного плану</span>
+                    <span class="fw-bold text-dark">📋 Зведена відомість надходжень</span>
                     <form method="GET" action="/" class="d-flex align-items-center gap-1 mb-0">
                         <input type="hidden" name="tab" value="finance">
                         <select name="finance_month" class="form-select form-select-sm bg-light text-dark fw-semibold" onchange="this.form.submit()" style="max-width: 160px; cursor: pointer;">
@@ -559,7 +557,7 @@
                     <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem; width:100%;">
                         <thead class="table-light position-sticky top-0">
                             <tr>
-                                <th>Назва клієнта</th><th>Країна</th><th class="text-end text-primary">Заплановано, EUR</th><th>Місяць</th><th class="text-end text-success">Фактично, EUR</th><th>Дата надходження</th><th class="text-center">Дія</th>
+                                <th>Назва клієнта</th><th>Країна</th><th class="text-end text-success">Заплановано, EUR</th><th>Місяць</th><th class="text-end text-success">Фактично, EUR</th><th>Дата надходження</th><th class="text-center">Дія</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -567,7 +565,7 @@
                             <tr>
                                 <td><a href="/client/{{ plan.client_id }}" class="fw-bold text-decoration-none text-dark">🏢 {{ plan.client_name }}</a></td>
                                 <td><span class="badge badge-soft-secondary">📍 {{ plan.country }}</span></td>
-                                <td class="text-end fw-bold text-primary">{{ "{:,.2f}".format(plan.planned_amount) }} €</td>
+                                <td class="text-end fw-bold text-success">{{ "{:,.2f}".format(plan.planned_amount) }} €</td>
                                 <td><span class="badge bg-light text-dark border px-2">{{ plan.month_name }}</span></td>
                                 <td class="text-end fw-bold text-success">{{ "{:,.2f}".format(plan.actual_amount) }} €</td>
                                 <td class="text-muted small">{{ plan.payment_date }}</td>
@@ -580,12 +578,12 @@
                         </tbody>
                         <tfoot class="table-light fw-bold border-top text-dark position-sticky bottom-0">
                             <tr>
-                                <td colspan="2" class="text-end text-uppercase">💰 Разом підсумки:</td>
-                                <td class="text-end text-primary fs-6">{{ "{:,.2f}".format(total_planned) }} €</td>
+                                <td colspan="2" class="text-end text-uppercase">💰 Разом:</td>
+                                <td class="text-end text-success fs-6">{{ "{:,.2f}".format(total_planned) }} €</td>
                                 <td></td>
                                 <td class="text-end text-success fs-6">{{ "{:,.2f}".format(total_actual) }} €</td>
-                                <td colspan="2" class="text-center bg-primary-subtle text-primary py-1.5" style="font-size: 0.78rem;">
-                                    Залишилось до виконання: <strong>{{ "{:,.2f}".format(total_remaining) }} €</strong>
+                                <td colspan="2" class="text-center bg-success-subtle text-success py-1.5" style="font-size: 0.78rem;">
+                                    Залишок до виконання: <strong>{{ "{:,.2f}".format(total_remaining) }} €</strong>
                                 </td>
                             </tr>
                         </tfoot>
@@ -625,13 +623,13 @@
                             <label class="form-label mb-0 fw-bold">Зацікавленість *</label>
                             <select name="interest_level" class="form-select form-select-sm" required>
                                 <option value="не опрацьовано" selected>Прозорий — не опрацьовано</option>
-                                <option value="немає зацікавленості">Синій — немає</option>
-                                <option value="середня зацікавленість">Жовтий — середня</option>
-                                <option value="зацікавленість">Зелений — висока</option>
+                                <option value="немає зацікавленості">Немає зацікавленості</option>
+                                <option value="середня зацікавленість">Середня зацікавленість</option>
+                                <option value="зацікавленість">🟢 Зелений — висока</option>
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label mb-0 fw-bold">Реєстрація на сайті MAYER PRO</label>
+                            <label class="form-label mb-0 fw-bold">Реєстрація на сайті PLONARIS</label>
                             <select name="mayer_reg" class="form-select form-select-sm">
                                 <option value="Ні" selected>Ні</option>
                                 <option value="Так">Так</option>
@@ -662,34 +660,9 @@
                             <label class="form-label mb-0">Адреса</label>
                             <input type="text" name="address" class="form-control form-control-sm" placeholder="Повна юридична або фізична адреса">
                         </div>
-                        <div class="col-12">
-                            <label class="form-label mb-0 fw-bold">Пріоритетні бренди</label>
-                            <div class="p-2.5 border rounded-3 bg-light d-flex flex-wrap gap-3" style="font-size: 0.8rem;">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="brands" value="Vaderstad" id="add_b_vaderstad">
-                                    <label class="form-check-label" for="add_b_vaderstad">Vaderstad</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="brands" value="Gaspardo" id="add_b_gaspardo">
-                                    <label class="form-check-label" for="add_b_gaspardo">Gaspardo</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="brands" value="Horsch" id="add_b_horsch">
-                                    <label class="form-check-label" for="add_b_horsch">Horsch</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="brands" value="Kverneland" id="add_b_kverneland">
-                                    <label class="form-check-label" for="add_b_kverneland">Kverneland</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="brands" value="Pottinger" id="add_b_pottinger">
-                                    <label class="form-check-label" for="add_b_pottinger">Pottinger</label>
-                                </div>
-                            </div>
-                        </div>
                         
                         <div class="col-md-6 border-end">
-                            <h6 class="text-danger fw-bold border-bottom pb-1 mb-1" style="font-size: 0.85rem;">👤 Контактна особа №1</h6>
+                            <h6 class="text-success fw-bold border-bottom pb-1 mb-1" style="font-size: 0.85rem;">👤 Контактна особа №1</h6>
                             <input type="text" name="contact_person" class="form-control form-control-sm mb-1" placeholder="ПІБ">
                             <input type="text" name="position" class="form-control form-control-sm mb-1" placeholder="Посада">
                             <input type="text" name="phone" class="form-control form-control-sm mb-1" placeholder="Телефон">
@@ -697,7 +670,7 @@
                             <input type="email" name="email" class="form-control form-control-sm" placeholder="Email">
                         </div>
                         <div class="col-md-6">
-                            <h6 class="text-danger fw-bold border-bottom pb-1 mb-1" style="font-size: 0.85rem;">👤 Контактна особа №2</h6>
+                            <h6 class="text-success fw-bold border-bottom pb-1 mb-1" style="font-size: 0.85rem;">👤 Контактна особа №2</h6>
                             <input type="text" name="contact_person_2" class="form-control form-control-sm mb-1" placeholder="ПІБ">
                             <input type="text" name="position_2" class="form-control form-control-sm mb-1" placeholder="Посада">
                             <input type="text" name="phone_2" class="form-control form-control-sm mb-1" placeholder="Телефон">
@@ -715,19 +688,19 @@
     </div>
 </div>
 
-<!-- МОДАЛЬНЕ ВІКНО РЕДАГУВАННЯ ФІНАНСОВОГО ПЛАНУ -->
+<!-- МОДАЛЬНІ ВІКНА РЕДАГУВАННЯ -->
 <div class="modal fade" id="editFinanceModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-dark text-white py-2.5">
-                <h6 class="modal-title fw-bold">✏️ Редагувати плановий показник: <span id="edit_finance_client_name" class="text-warning"></span></h6>
+                <h6 class="modal-title fw-bold">✏️ Редагувати плановий показник: <span id="edit_finance_client_name" class="text-success"></span></h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="editFinanceForm" method="POST" action="">
                 <div class="modal-body p-3 bg-light-subtle" style="font-size: 0.85rem;">
                     <div class="mb-2">
                         <label class="form-label mb-0 small text-muted">Заплановано надходження, EUR:</label>
-                        <input type="number" step="0.01" name="planned_amount" id="edit_planned_amount" class="form-control form-control-sm fw-bold text-primary" required>
+                        <input type="number" step="0.01" name="planned_amount" id="edit_planned_amount" class="form-control form-control-sm fw-bold text-success" required>
                     </div>
                     <div class="mb-2">
                         <label class="form-label mb-0 small text-muted">Місяць:</label>
@@ -739,11 +712,11 @@
                         </select>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label mb-0 small text-muted">Фактичне надходження, EUR:</label>
+                        <label class="form-label mb-0 small text-muted">Фактично, EUR:</label>
                         <input type="number" step="0.01" name="actual_amount" id="edit_actual_amount" class="form-control form-control-sm" value="0">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label mb-0 small text-muted">Дата надходження:</label>
+                        <label class="form-label mb-0 small text-muted">Дата оплати:</label>
                         <input type="date" name="payment_date" id="edit_payment_date" class="form-control form-control-sm">
                     </div>
                     <div class="d-flex justify-content-between gap-2">
@@ -756,7 +729,6 @@
     </div>
 </div>
 
-<!-- МОДАЛЬНЕ ВІКНО РЕДАГУВАННЯ ЗАВДАННЯ -->
 <div class="modal fade" id="editTaskModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -773,13 +745,13 @@
                     <div class="row g-2">
                         <div class="col-6">
                             <label class="form-label mb-0 small text-muted">Термін виконання:</label>
-                            <input type="date" name="deadline" id="edit_task_deadline" class="form-control form-control-sm fw-bold text-danger" required>
+                            <input type="date" name="deadline" id="edit_task_deadline" class="form-control form-control-sm fw-bold text-success" required>
                         </div>
                         <div class="col-6">
-                            <label class="form-label mb-0 small text-muted">Відповідальна особа:</label>
+                            <label class="form-label mb-0 small text-muted">Відповідальний:</label>
                             <select name="author" id="edit_task_author" class="form-select form-select-sm fw-bold">
                                 <option value="Продажі">💼 Продажі</option>
-                                <option value="CEO">📁 CEO</option>
+                                <option value="CEO">📁 Керівництво</option>
                             </select>
                         </div>
                     </div>
@@ -827,7 +799,7 @@
     }
 
     .tasks-grid td { height: 54px; position: relative; cursor: pointer; font-weight: 500; vertical-align: top; padding-top: 5px; }
-    .tasks-grid td:hover { background-color: #f1f5f9 !important; }
+    .tasks-grid td:hover { background-color: #f0fdf4 !important; }
     .tasks-dot-badge { 
         position: absolute; 
         bottom: 3px; 
@@ -840,7 +812,7 @@
         align-items: center; 
         font-weight: bold; 
     }
-    .calendar-today-highlight { outline: 2px solid #0f172a !important; outline-offset: -2px; }
+    .calendar-today-highlight { outline: 2px solid #166534 !important; outline-offset: -2px; }
 </style>
 
 <script>
@@ -956,15 +928,14 @@ function switchWindow(targetWinId) {
     let activeBtn = document.getElementById('btn-' + targetWinId);
     if (activeBtn) {
         if(targetWinId === 'today-win') activeBtn.className = "btn btn-sm btn-warning text-dark fw-bold px-3 shadow-sm";
-        else if(targetWinId === 'calendar-win') activeBtn.className = "btn btn-sm btn-primary fw-bold px-3 shadow-sm";
+        else if(targetWinId === 'calendar-win') activeBtn.className = "btn btn-sm btn-success fw-bold px-3 shadow-sm";
         else if(targetWinId === 'all-win') activeBtn.className = "btn btn-sm btn-brand fw-bold px-3 shadow-sm";
-        else if(targetWinId === 'finance-win') activeBtn.className = "btn btn-sm btn-primary fw-bold px-3 shadow-sm";
+        else if(targetWinId === 'finance-win') activeBtn.className = "btn btn-sm btn-success fw-bold px-3 shadow-sm";
         else if(targetWinId === 'tasks-win') activeBtn.className = "btn btn-sm btn-dark text-white fw-bold px-3 shadow-sm";
-        else if(targetWinId === 'demand-win') activeBtn.className = "btn btn-sm btn-danger fw-bold px-3 shadow-sm";
+        else if(targetWinId === 'demand-win') activeBtn.className = "btn btn-sm btn-success fw-bold px-3 shadow-sm";
     }
 }
 
-// КАЛЕНДАР ДІЙ
 function changeMonth(direction) {
     currentMonth += direction;
     if (currentMonth < 0) { currentMonth = 11; currentYear--; }
@@ -993,7 +964,7 @@ function renderCalendar() {
         let dayTasks = allClients.filter(c => c.next_event_date === dateKey);
         if (dayTasks.length > 0) {
             cellStyle += " background-color: #dcfce7; font-weight: bold; color: #15803d; border: 1.5px solid #86efac;";
-            badgeDot = `<br><span class='badge bg-danger rounded-pill' style='font-size:0.65rem; padding: 2px 5px;'>${dayTasks.length}</span>`;
+            badgeDot = `<br><span class='badge bg-success rounded-pill' style='font-size:0.65rem; padding: 2px 5px;'>${dayTasks.length}</span>`;
         }
         gridHtml += `<td style="${cellStyle}" onclick="showTasksForDate('${dateKey}')">${day}${badgeDot}</td>`;
         currentDayCount++;
@@ -1017,14 +988,13 @@ function showTasksForDate(dateStr) {
         html += `
             <li class="list-group-item d-flex justify-content-between align-items-center p-2.5 border-bottom">
                 <div><a href="/client/${c.id}" class="fw-bold text-decoration-none text-dark fs-6">🏢 ${c.name}</a></div>
-                <div class="d-flex align-items-center gap-2"><span class="badge badge-soft-primary">${icon}</span><a href="/client/${c.id}" class="btn btn-xs btn-dark fw-bold px-2 py-0.5 shadow-xs">Картка</a></div>
+                <div class="d-flex align-items-center gap-2"><span class="badge badge-soft-success">${icon}</span><a href="/client/${c.id}" class="btn btn-xs btn-dark fw-bold px-2 py-0.5 shadow-xs">Картка</a></div>
             </li>`;
     });
     html += `</ul>`;
     box.innerHTML = html;
 }
 
-// ВДОСКОНАЛЕНИЙ КАЛЕНДАР ЗАДАЧНИКА
 function renderTasksCalendar() {
     const labelEl = document.getElementById('tasks-calendar-title');
     if (!labelEl) return;
@@ -1111,8 +1081,8 @@ function selectTasksDate(dateStr) {
         let isOverdue = !isDone && t.deadline < todayStr;
         let textStyle = isDone ? 'text-decoration-line-through text-muted small' : 'text-dark fw-medium';
         let cardBg = isDone ? 'bg-light' : isOverdue ? 'bg-danger-subtle' : 'bg-white';
-        let borderStyle = isDone ? 'border-success' : isOverdue ? 'border-danger' : 'border-primary';
-        let authorBadge = t.author === 'CEO' ? '<span class="badge bg-danger">📁 CEO</span>' : '<span class="badge bg-primary">💼 Продажі</span>';
+        let borderStyle = isDone ? 'border-success' : isOverdue ? 'border-danger' : 'border-success';
+        let authorBadge = t.author === 'CEO' ? '<span class="badge bg-dark">📁 Керівництво</span>' : '<span class="badge bg-success">💼 Продажі</span>';
         let statusBadge = isDone ? '<span class="badge badge-soft-success">✔ Виконано</span>' : isOverdue ? '<span class="badge badge-soft-danger">⚠️ Прострочено</span>' : '<span class="badge badge-soft-warning">⏳ В роботі</span>';
         
         html += `
@@ -1193,7 +1163,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const deleteBtn = document.getElementById('btn_delete_finance');
             if (deleteBtn) {
                 deleteBtn.onclick = function() {
-                    if (confirm(`Ви дійсно бажаєте видалити плановий запис для ${clientName}?`)) {
+                    if (confirm(`Ви дійсно бажаєте видалити запис для ${clientName}?`)) {
                         const delForm = document.createElement('form');
                         delForm.method = 'POST';
                         delForm.action = `/delete_finance_plan/${planId}`;
@@ -1222,5 +1192,4 @@ window.onload = function() {
 };
 </script>
 {% endblock %}
-
 
