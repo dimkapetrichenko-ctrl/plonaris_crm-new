@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PLONARIS | B2B CRM System</title>
+    <title>PLONARIS | CRM System</title>
     
     <!-- Google Font: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,15 +16,15 @@
     
     <style>
         :root {
-            /* Гармонійна зелена гама */
-            --crm-bg: #f2f7f4;
+            /* Фірмовий відтінок зеленого Plonaris */
+            --crm-bg: #f4f8f5;
             --crm-card-bg: #ffffff;
-            --crm-border: #d4e3d9;
+            --crm-border: #d2e4d8;
             --crm-border-subtle: #cbd5e1;
-            --crm-primary: #166534;
-            --crm-primary-hover: #14532d;
-            --crm-header-green: #14532d;
-            --crm-accent-green: #22c55e;
+            --crm-primary: #0E6330;
+            --crm-primary-hover: #094721;
+            --crm-header-green: #0B4F26;
+            --crm-accent-green: #1B8344;
             --crm-text-main: #0f172a;
             --crm-text-muted: #64748b;
         }
@@ -36,27 +36,20 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Зелена верхня навігаційна панель */
+        /* Навігаційна панель у фірмовому тоні логотипу */
         .navbar-custom {
-            background: linear-gradient(135deg, #14532d 0%, #166534 100%);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 4px 14px rgba(20, 83, 45, 0.25);
+            background: linear-gradient(135deg, #0B4F26 0%, #0E6330 100%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 4px 14px rgba(11, 79, 38, 0.28);
         }
 
-        /* Логотип бренду */
+        /* Фірмовий логотип */
         .brand-logo-img {
-            height: 36px;
+            height: 38px;
             width: auto;
-            max-width: 140px;
+            max-width: 170px;
             object-fit: contain;
             display: inline-block;
-        }
-
-        .brand-title {
-            font-size: 1.25rem;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            color: #ffffff;
         }
 
         /* Картки та панелі */
@@ -91,12 +84,12 @@
         }
 
         .btn-header-exit {
-            background-color: rgba(255, 255, 255, 0.12);
+            background-color: rgba(255, 255, 255, 0.14);
             color: #ffffff;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.25);
         }
         .btn-header-exit:hover {
-            background-color: rgba(0, 0, 0, 0.25);
+            background-color: rgba(0, 0, 0, 0.3);
             color: #ffffff;
         }
 
@@ -119,11 +112,11 @@
             transition: background-color 0.15s ease;
         }
         .table tbody tr:hover {
-            background-color: #f0fdf4;
+            background-color: #eef7f1;
         }
 
         /* Soft Badges */
-        .badge-soft-success { background-color: #dcfce7; color: #15803d; }
+        .badge-soft-success { background-color: #d6f2e0; color: #0E6330; }
         .badge-soft-warning { background-color: #fef9c3; color: #854d0e; }
         .badge-soft-danger { background-color: #fee2e2; color: #b91c1c; }
         .badge-soft-primary { background-color: #e0f2fe; color: #0369a1; }
@@ -136,24 +129,17 @@
         }
         .form-control:focus, .form-select:focus {
             border-color: var(--crm-primary);
-            box-shadow: 0 0 0 3px rgba(22, 101, 52, 0.18);
+            box-shadow: 0 0 0 3px rgba(14, 99, 48, 0.18);
         }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark navbar-custom py-2 px-4 mb-4">
         <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-white" href="/">
-                <!-- Логотип компанії Plonaris -->
-                <img src="{{ url_for('static', filename='white logo.svg') }}" alt="Plonaris Logo" class="brand-logo-img" style="height: 38px; width: auto; object-fit: contain;">
-                
-                <!-- Запасна векторна іконка, якщо logo.png ще не завантажено -->
-                <span id="default-brand-icon" class="bg-white text-success rounded-circle p-1 align-items-center justify-content-center shadow-xs" style="width: 32px; height: 32px; display: none;">
-                    <i class="bi bi-tree-fill fs-5"></i>
-                </span>
-                
-                <span class="brand-title">PLONARIS</span>
-                <span class="badge bg-success-subtle text-success text-uppercase ms-1 border border-success fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">B2B CRM</span>
+            <a class="navbar-brand d-flex align-items-center gap-2 text-white" href="/">
+                <!-- Відображення файлу white logo.svg -->
+                <img src="{{ url_for('static', filename='white logo.svg') }}" alt="Plonaris" class="brand-logo-img">
+                <span class="badge bg-white text-success text-uppercase ms-2 border border-light fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px; color: #0E6330 !important;">CRM System</span>
             </a>
             <div class="d-flex align-items-center gap-2">
                 <a href="/logout" class="btn btn-sm btn-header-exit d-flex align-items-center gap-1 fw-semibold">
