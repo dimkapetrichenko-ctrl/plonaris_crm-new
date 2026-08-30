@@ -214,7 +214,7 @@ def init_db():
         )
     ''')
     
-    # Створення таблиці інтерактивного блокнота
+    # Таблиця інтерактивного блокнота
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS notebook_pages (
             id SERIAL PRIMARY KEY,
@@ -478,13 +478,19 @@ def index():
         top_demand=top_demand
     )
 
-# МАРШРУТИ ДЛЯ РОБОТИ З БЛОКНОТОМ
+# МАРШРУТИ ДЛЯ РОБОТИ З БЛОКНОТОМ (З ПІДТРИМКОЮ ДАТИ)
 @app.route('/notes')
 @login_required
 def get_notes():
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=DictCursor)
-    cursor.execute("SELECT id, title, content, TO_CHAR(updated_at, 'YYYY-MM-DD HH24:MI') as updated_at FROM notebook_pages ORDER BY id ASC")
+    cursor.execute("""
+        SELECT id, title, content, 
+               TO_CHAR(created_at, 'DD.MM.YYYY') as page_date,
+               TO_CHAR(updated_at, 'YYYY-MM-DD HH24:MI') as updated_at 
+        FROM notebook_pages 
+        ORDER BY id ASC
+    """)
     notes = [dict(r) for r in cursor.fetchall()]
     cursor.close()
     conn.close()
