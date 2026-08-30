@@ -139,7 +139,7 @@
                             </tr>
                             <tr id="excel-filter-row">
                                 <th>
-                                    <input type="text" id="filter-name" class="form-control form-control-sm" placeholder="🔍 Пошук..." onkeyup="filterClientsTable()">
+                                    <input type="text" id="filter-name" class="form-control form-control-sm" placeholder="🔍 Назва / NIP..." onkeyup="filterClientsTable()">
                                 </th>
                                 <th>
                                     <select id="filter-type" class="form-select form-select-sm" onchange="filterClientsTable()">
@@ -209,7 +209,7 @@
                         <tbody id="clients-table-body">
                             {% for client in clients %}
                             <tr class="client-row {% if client.next_event_date == today_date %}table-warning fw-bold{% endif %}"
-                                data-name="{{ (client.name or '')|lower }} {{ (client.contact_person or '')|lower }} {{ (client.phone or '')|lower }} {{ (client.email or '')|lower }}"
+                                data-name="{{ (client.name or '')|lower }} {{ (client.nip or '')|lower }} {{ (client.contact_person or '')|lower }} {{ (client.phone or '')|lower }} {{ (client.email or '')|lower }}"
                                 data-type="{{ (client.buyer_type or 'не вказано')|lower }}"
                                 data-country="{{ (client.country or '')|lower }}"
                                 data-interest="{{ (client.interest_level or 'не опрацьовано')|lower }}"
@@ -223,6 +223,11 @@
                                     <a href="/client/{{ client.id }}" class="fw-bold text-decoration-none text-dark d-block text-truncate" title="{{ client.name }}">
                                         <i class="bi bi-building text-success"></i> {{ client.name }}
                                     </a>
+                                    {% if client.nip %}
+                                        <div class="text-success font-monospace fw-semibold" style="font-size: 0.70rem;" title="NIP: {{ client.nip }}">
+                                            🆔 {{ client.nip }}
+                                        </div>
+                                    {% endif %}
                                     {% if not client.is_active %}
                                         <span class="badge badge-soft-danger mt-0.5" style="font-size: 0.65rem;" title="{{ client.deactivation_reason }}">⛔ Архів</span>
                                     {% endif %}
@@ -611,6 +616,10 @@
                         <div class="col-md-6">
                             <label class="form-label mb-0 fw-bold">Назва компанії *</label>
                             <input type="text" name="name" class="form-control form-control-sm" required placeholder="Введіть назву компанії">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label mb-0 fw-bold">NIP / TAX Number</label>
+                            <input type="text" name="nip" class="form-control form-control-sm font-monospace text-success fw-bold" placeholder="напр. PL1234567890">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label mb-0 fw-bold">Тип контрагента</label>
