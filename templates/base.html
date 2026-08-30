@@ -43,14 +43,18 @@
             box-shadow: 0 4px 14px rgba(11, 79, 38, 0.28);
         }
 
-        /* Фірмовий логотип */
-        .brand-logo-img {
-            height: 38px;
-            width: auto;
-            max-width: 170px;
-            object-fit: contain;
-            display: inline-block;
-        }
+      /* Збільшений логотип без обмежень рамки */
+.brand-logo-img {
+    height: 48px;          /* Збільшена висота знака */
+    width: auto;
+    max-height: 52px;
+    object-fit: contain;
+    display: inline-block;
+    background: transparent !important; /* Гарантовано без фону/рамки */
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
 
         /* Картки та панелі */
         .card {
