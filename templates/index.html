@@ -689,7 +689,7 @@
                         <thead class="table-light position-sticky top-0">
                             <tr>
                                 <th>Назва контрагента</th>
-                                <th class="text-center" style="width: 140px;">Стан оплати</th>
+                                <th class="text-center" style="width: 155px;">Стан оплати</th>
                                 <th class="text-end text-muted">Виставлено / План, zł</th>
                                 <th class="text-end text-success">Оплачено (Факт), zł</th>
                                 <th>Дата</th>
@@ -702,19 +702,23 @@
                                 <td>
                                     <a href="/client/{{ plan.client_id }}" class="fw-bold text-decoration-none text-dark">🏢 {{ plan.client_name }}</a>
                                 </td>
-                                <td class="text-center">
+                                <td class="text-center" style="vertical-align: middle;">
                                     {% if plan.actual_amount > 0 and (plan.actual_amount >= plan.planned_amount or plan.planned_amount == 0) %}
-                                        <form action="/toggle_payment_status/{{ plan.id }}" method="POST" class="m-0 d-inline" title="Натисніть, щоб змінити на 'Чекаємо оплату'">
+                                        <form action="/toggle_payment_status/{{ plan.id }}" method="POST" class="m-0 d-inline">
                                             <input type="hidden" name="target_status" value="waiting">
-                                            <button type="submit" class="btn btn-xs badge-soft-success border border-success fw-bold px-2 py-1 rounded-pill" style="cursor: pointer;">
-                                                🟢 Оплачено 🔄
+                                            <button type="submit" class="btn-status-pill status-paid" title="Натисніть, щоб змінити на 'Чекаємо оплату'">
+                                                <i class="bi bi-check-circle-fill"></i>
+                                                <span>Оплачено</span>
+                                                <i class="bi bi-arrow-repeat switch-icon"></i>
                                             </button>
                                         </form>
                                     {% else %}
-                                        <form action="/toggle_payment_status/{{ plan.id }}" method="POST" class="m-0 d-inline" title="Натисніть, щоб позначити як 'Оплачено'">
+                                        <form action="/toggle_payment_status/{{ plan.id }}" method="POST" class="m-0 d-inline">
                                             <input type="hidden" name="target_status" value="paid">
-                                            <button type="submit" class="btn btn-xs badge-soft-warning border border-warning text-dark fw-bold px-2 py-1 rounded-pill" style="cursor: pointer;">
-                                                🟡 Чекаємо оплату 🔄
+                                            <button type="submit" class="btn-status-pill status-waiting" title="Натисніть, щоб змінити на 'Оплачено'">
+                                                <i class="bi bi-hourglass-split"></i>
+                                                <span>Чекаємо оплату</span>
+                                                <i class="bi bi-arrow-repeat switch-icon"></i>
                                             </button>
                                         </form>
                                     {% endif %}
@@ -999,6 +1003,57 @@
         font-weight: bold; 
     }
     .calendar-today-highlight { outline: 2px solid #2D7F35 !important; outline-offset: -2px; }
+
+    /* Акуратні мікро-кнопки перемикання статусу оплати */
+    .btn-status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 9px;
+        font-size: 0.73rem;
+        font-weight: 600;
+        border-radius: 20px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        background: transparent;
+        line-height: 1.2;
+        text-decoration: none;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    .btn-status-pill .switch-icon {
+        font-size: 0.68rem;
+        opacity: 0.45;
+        transition: transform 0.25s ease, opacity 0.2s ease;
+    }
+
+    .btn-status-pill:hover .switch-icon {
+        opacity: 1;
+        transform: rotate(180deg);
+    }
+
+    .status-paid {
+        background-color: #ecfdf5;
+        color: #047857;
+        border-color: #a7f3d0;
+    }
+    .status-paid:hover {
+        background-color: #d1fae5;
+        border-color: #6ee7b7;
+        color: #065f46;
+    }
+
+    .status-waiting {
+        background-color: #fffbeb;
+        color: #b45309;
+        border-color: #fde68a;
+    }
+    .status-waiting:hover {
+        background-color: #fef3c7;
+        border-color: #fcd34d;
+        color: #92400e;
+    }
 
     /* СТИЛІ БЛОКНОТА */
     .notebook-container {
