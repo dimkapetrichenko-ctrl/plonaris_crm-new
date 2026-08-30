@@ -13,6 +13,8 @@ from email.mime.text import MIMEText
 from email.header import Header, decode_header
 import requests
 from bs4 import BeautifulSoup
+from pypdf import PdfReader
+import re
 import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -478,7 +480,7 @@ def index():
         top_demand=top_demand
     )
 
-# МАРШРУТИ ДЛЯ РОБОТИ З БЛОКНОТОМ (З ПІДТРИМКОЮ ДАТИ)
+# МАРШРУТИ БЛОКНОТА (З ДАТОЮ)
 @app.route('/notes')
 @login_required
 def get_notes():
@@ -526,6 +528,151 @@ def delete_note(note_id):
     cursor.close()
     conn.close()
     return jsonify({'success': True})
+
+# МАРШРУТ ЗЧИТУВАННЯ PDF-РАХУНКІВ (FAKTUROWNIA ТА ІНШІ)
+@app.route('/upload_invoice_pdf', methods=['POST'])
+@login_required
+def upload_invoice_pdf():
+    file = request.files.get('invoice_file')
+    forced_client_id = request.form.get('client_id')
+    
+    if not file or file.filename == '':
+        return jsonify({'success': False, 'message': 'Файл не обрано!'})
+        
+    try:
+        reader = PdfReader(file)
+        full_text = ""
+        for page in reader.pages:
+            full_text += page.extract_text() or ""
+            
+        inv_data = None
+        if GEMINI_API_KEY:
+            prompt = f"""
+            Проаналізуй текст польського рахунку / фактури та витягни дані у форматі JSON:
+            --- ТЕКСТ РАХУНКУ ---
+            {full_text}
+            --- КІНЕЦЬ ТЕКСТУ ---
+            
+            Поверни ВИКЛЮЧНО валідний JSON строго за зразком:
+            {{
+                "invoice_number": "P5/08/2026",
+                "buyer_name": "Lech Siewiec",
+                "buyer_nip": "85413770273",
+                "buyer_address": "Kunowo 53, 73-110 Stargard",
+                "date": "2026-08-25",
+                "total_amount": 1447.47,
+                "currency": "PLN",
+                "items": ["453528-M Pierścień (2 szt)", "464730-M Śruba dwustronna (6 szt)"]
+            }}
+            """
+            try:
+                host = "generativelanguage.googleapis.com"
+                model_path = "v1beta/models/gemini-2.5-flash:generateContent"
+                url = f"https://{host}/{model_path}?key={str(GEMINI_API_KEY).strip()}"
+                
+                res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.0}}, timeout=15)
+                raw_res = res.json()['candidates'][0]['content']['parts'][0]['text']
+                raw_res = raw_res.replace('```json', '').replace('```', '').strip()
+                inv_data = json.loads(raw_res)
+            except Exception as e:
+                print(f"Gemini parse fallback: {e}")
+
+        if not inv_data:
+            num_match = re.search(r'numer\s+([A-Za-z0-9\/\-]+)', full_text, re.IGNORECASE)
+            nip_match = re.search(r'NIP\s*([0-9]{10,11})', full_text)
+            date_match = re.search(r'(\d{4}-\d{2}-\d{2})', full_text)
+            total_match = re.search(r'(?:Do zapłaty|Razem|brutto)[\s\:\n]+([\d\s]+[\,\.]\d{2})\s*(PLN|EUR)', full_text, re.IGNORECASE)
+            
+            tot_amt = 0.0
+            cur = "PLN"
+            if total_match:
+                tot_amt = float(total_match.group(1).replace(' ', '').replace(',', '.'))
+                cur = total_match.group(2).upper()
+                
+            inv_data = {
+                "invoice_number": num_match.group(1) if num_match else "FV-Auto",
+                "buyer_name": "Контрагент з рахунку",
+                "buyer_nip": nip_match.group(1) if nip_match else "",
+                "buyer_address": "",
+                "date": date_match.group(1) if date_match else datetime.now().strftime("%Y-%m-%d"),
+                "total_amount": tot_amt,
+                "currency": cur,
+                "items": []
+            }
+
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=DictCursor)
+        
+        client_id = forced_client_id
+        if not client_id:
+            if inv_data.get('buyer_nip'):
+                cursor.execute("SELECT id FROM clients WHERE nip = %s", (inv_data['buyer_nip'],))
+                row = cursor.fetchone()
+                if row:
+                    client_id = row['id']
+                    
+            if not client_id and inv_data.get('buyer_name'):
+                cursor.execute("SELECT id FROM clients WHERE LOWER(name) = LOWER(%s)", (inv_data['buyer_name'],))
+                row = cursor.fetchone()
+                if row:
+                    client_id = row['id']
+
+            if not client_id:
+                cursor.execute("""
+                    INSERT INTO clients (name, nip, address, country, buyer_type, interest_level, deal_stage, is_active)
+                    VALUES (%s, %s, %s, 'Польща', 'роздрібний покупець', 'зацікавленість', 'paid_shipped', TRUE)
+                    RETURNING id
+                """, (inv_data.get('buyer_name', 'Клієнт з фактури'), inv_data.get('buyer_nip', ''), inv_data.get('buyer_address', '')))
+                client_id = cursor.fetchone()['id']
+            else:
+                if inv_data.get('buyer_nip'):
+                    cursor.execute("UPDATE clients SET nip = %s WHERE id = %s AND (nip IS NULL OR nip = '')", (inv_data['buyer_nip'], client_id))
+
+        amt = float(inv_data.get('total_amount', 0))
+        amt_eur = round(amt / 4.30, 2) if inv_data.get('currency') == 'PLN' else amt
+
+        ukr_months = ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"]
+        pay_date = inv_data.get('date', datetime.now().strftime("%Y-%m-%d"))
+        try:
+            month_idx = datetime.strptime(pay_date, "%Y-%m-%d").month - 1
+            month_name = ukr_months[month_idx]
+        except Exception:
+            month_name = "Серпень"
+        
+        cursor.execute("SELECT id, actual_amount FROM sales_plans WHERE client_id = %s ORDER BY id DESC LIMIT 1", (client_id,))
+        existing_plan = cursor.fetchone()
+        if existing_plan:
+            new_fact = float(existing_plan['actual_amount'] or 0) + amt_eur
+            cursor.execute("UPDATE sales_plans SET actual_amount = %s, payment_date = %s WHERE id = %s", (new_fact, pay_date, existing_plan['id']))
+        else:
+            cursor.execute("INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date) VALUES (%s, 0.0, %s, %s, %s)", (client_id, month_name, amt_eur, pay_date))
+
+        try:
+            next_date = (datetime.strptime(pay_date, "%Y-%m-%d") + timedelta(days=7)).strftime("%Y-%m-%d")
+        except Exception:
+            next_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+
+        cursor.execute("UPDATE clients SET deal_stage = 'paid_shipped', next_event_date = %s, next_event_type = 'call' WHERE id = %s", (next_date, client_id))
+        
+        items_str = ", ".join(inv_data.get('items', []))
+        items_log = f"\n📦 Товари: {items_str}" if items_str else ""
+        current_dt = datetime.now().strftime("%Y-%m-%d %H:%M")
+        log_text = f"🧾 [ІМПОРТ РАХУНКУ] Рахунок №{inv_data.get('invoice_number')}. Оплачено: {amt:,.2f} {inv_data.get('currency')} (екв. ~{amt_eur:,.2f} €).{items_log}\nПризначено дзвінок-контроль на {next_date}."
+        
+        cursor.execute("INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, 'Продажі')", (client_id, current_dt, log_text))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True, 
+            'message': f"Рахунок {inv_data.get('invoice_number')} успішно опрацьовано! Додано {amt_eur:,.2f} € у фактично оплачено.",
+            'client_id': client_id
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Помилка обробки PDF: {str(e)}'})
 
 # МАРШРУТ АВТОМАТИЧНОГО ІМПОРТУ ПАРТНЕРІВ
 @app.route('/run-partners-import')
