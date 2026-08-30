@@ -118,6 +118,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS clients (
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
+            nip TEXT,
             country TEXT,
             address TEXT,
             contact_person TEXT,
@@ -148,6 +149,7 @@ def init_db():
     existing_columns = [row[0] for row in cursor.fetchall()]
     
     new_fields = {
+        'nip': 'TEXT',
         'website': 'TEXT', 'buyer_type': 'TEXT', 'brands': 'TEXT', 'position': 'TEXT',
         'contact_person_2': 'TEXT', 'position_2': 'TEXT', 'phone_2': 'TEXT', 'email_2': 'TEXT',
         'interest_level': 'TEXT', 'next_event_date': 'TEXT', 'next_event_type': 'TEXT', 'mayer_reg': 'TEXT',
@@ -388,8 +390,8 @@ def index():
         sql += " AND c.is_active IS FALSE"
 
     if search_query:
-        sql += " AND (LOWER(c.name) LIKE LOWER(%s) OR LOWER(c.contact_person) LIKE LOWER(%s) OR LOWER(c.brands) LIKE LOWER(%s) OR LOWER(c.country) LIKE LOWER(%s) OR LOWER(c.buyer_type) LIKE LOWER(%s) OR LOWER(c.aftermarket_companies) LIKE LOWER(%s))"
-        params.extend([f"%{search_query}%", f"%{search_query}%", f"%{search_query}%", f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"])
+        sql += " AND (LOWER(c.name) LIKE LOWER(%s) OR LOWER(COALESCE(c.nip, '')) LIKE LOWER(%s) OR LOWER(c.contact_person) LIKE LOWER(%s) OR LOWER(c.country) LIKE LOWER(%s) OR LOWER(c.buyer_type) LIKE LOWER(%s))"
+        params.extend([f"%{search_query}%", f"%{search_query}%", f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"])
         
     if interest_filter:
         sql += " AND c.interest_level = %s"
@@ -410,6 +412,7 @@ def index():
         clients.append({
             'id': int(row['id']),
             'name': row['name'] if row['name'] else '',
+            'nip': row['nip'] if row['nip'] else '',
             'country': row['country'] if row['country'] else '',
             'address': row['address'] if row['address'] else '',
             'contact_person': row['contact_person'] if row['contact_person'] else '',
@@ -463,64 +466,6 @@ def index():
         lost_demand_list=lost_demand_list,
         top_demand=top_demand
     )
-
-# МАРШРУТ АВТОМАТИЧНОГО ІМПОРТУ ПАРТНЕРІВ PLONARIS
-@app.route('/run-partners-import')
-@login_required
-def run_partners_import():
-    partners_data = [
-        {"name": "BDO", "country": "Польща", "address": "", "contact_person": "", "position": "", "phone": "", "phone_2": "", "email": "", "website": "https://bdo.mos.gov.pl/", "notes": "Реєстрація BDO / Вивіз відходів"},
-        {"name": "MAYER PRO s.r.o.", "country": "Словаччина", "address": "Jegenesska 9", "contact_person": "Dmytro Petrychenko", "position": "Regional manager", "phone": "501166523", "phone_2": "+421 907 933 441", "email": "sales@mayer-pro.com", "website": "https://mayer-pro.com/pl", "notes": "Постачальник aftermarket запчастин до сільгосптехніки"},
-        {"name": "ZETTA GROUP Sp. z o.o.", "country": "Польща", "address": "ul. Szlak 77/222 31-153 Kraków", "contact_person": "Wiktor Sasulski", "position": "", "phone": "+48 730 898 378", "phone_2": "", "email": "wiktor.sasulski@zettagroup.com.pl", "website": "https://zettagroup.com.pl/pro-kompaniyu/", "notes": "Firma produkuje części do maszyn rolniczych z metali i polimerów stałych. Claas, Geringhoff, John Deere, Case, New Holland, Fantini, Lemken, Oros, Gaspardo i inne."},
-        {"name": "IQ Parts  Beyne GMBH", "country": "Австрія", "address": "Bundesstraße 8A-8661 St. Barbara im Mürztal", "contact_person": "Sven Vierstraete", "position": "", "phone": "+43385860556100", "phone_2": "", "email": "svenvierstraete@iqparts.com", "website": "http://www.iqparts.com", "notes": "Виробник робочих органів"},
-        {"name": "AMA Star", "country": "Туреччина", "address": "Güzelyurt, 5787 Sk. No:9, 45030 Yunusemre/Manisa", "contact_person": "Ersin Vardar", "position": "", "phone": "+90 539 684 86 46", "phone_2": "", "email": "ersinvardar@startrm.com", "website": "https://amastar.com.tr/en", "notes": "Виробляють диски до дискових борін різних марок."},
-        {"name": "Granit Parts", "country": "Польща", "address": "", "contact_person": "Piotr Kowarski", "position": "manager", "phone": "+48 661 300 670", "phone_2": "", "email": "piotr.kowalski@granit-parts.com", "website": "www.granit-parts.pl", "notes": "Логін: 5780340  Пароль: J8fnIF7u"},
-        {"name": "OZDOWSKI", "country": "Польща", "address": "ul.Zebrzydowicka 28, 44-217 Rybnik", "contact_person": "Aleksandra Ozdowska", "position": "", "phone": "+48 535 515 139", "phone_2": "", "email": "aleksandra@fhuozdowski.pl", "website": "https://www.zamiennikirolnicze.pl/", "notes": "Виробляють ланцюги для передачі крутного моменту."},
-        {"name": "Agri Carb (Ceratizit Group)", "country": "Польща", "address": "", "contact_person": "Aron grelich", "position": "technical sales expert", "phone": "+48 667 756 067", "phone_2": "", "email": "aron.grelich@ceratizit.com", "website": "https://agricarb.com/int/en.html", "notes": "Виробляють робочі органи до різних типів грунтообробного обладнання. Спеціалізуються на долотах з карбід-вольфрамовою наплавкою."},
-        {"name": "Agrocolla Navarro", "country": "Іспанія", "address": "", "contact_person": "Santiago Sanchiz Telemin", "position": "", "phone": "+34 628 747 376", "phone_2": "", "email": "export@agricolanavarro.com", "website": "https://agricolanavarro.com/productos/", "notes": "Виробник робочих органів (фрези, мульчувачі, вертикудери, активні культиватори)"},
-        {"name": "BUCO", "country": "Аргентина", "address": "", "contact_person": "Mariano Buconic", "position": "", "phone": "+54 9 11 6454 8147", "phone_2": "", "email": "mariano.buconic@buco.com.ar", "website": "www.buco.com.ar", "notes": "Виробник коліс (прикочуючі колеса, колеса глибини тощо)"},
-        {"name": "Dosemenler", "country": "Туреччина", "address": "", "contact_person": "Serdar Dósemen", "position": "", "phone": "+90 266 626 10 50", "phone_2": "", "email": "serdar@dosemen.com", "website": "https://www.dosemen.com/", "notes": "Розробляють та виготовляють робочі органи"},
-        {"name": "OZAR", "country": "Туреччина", "address": "", "contact_person": "Sidharth Trikha", "position": "", "phone": "+91 941 691 68 20", "phone_2": "", "email": "globalsales@aloktools.com", "website": "https://www.aloktools.com/", "notes": "Виробляють ручний інструмент та інструмент для виробництв."},
-        {"name": "STANMAR", "country": "Польща", "address": "", "contact_person": "Grzegorz Szulc", "position": "", "phone": "+48 883 633 073", "phone_2": "", "email": "grzegorz@stanmar.net.pl", "website": "https://stanmar.net.pl/oferta.html", "notes": "Виробник деталей на замовлення. Токарні та фрезерні роботи."},
-        {"name": "AGROSALIX", "country": "Польща", "address": "", "contact_person": "Tomasz Wierzba", "position": "", "phone": "+48 508 375 808", "phone_2": "", "email": "agrosalixwierzba@gmail.com", "website": "", "notes": "Запчастини до John Deere (двигун)"},
-        {"name": "AGRI-INDUS SAS", "country": "Франція", "address": "", "contact_person": "", "position": "", "phone": "+33344419533", "phone_2": "", "email": "contact@agri-indus.fr", "website": "https://www.agri-indus.fr/", "notes": "Виробник робочих органів з пластинами"},
-        {"name": "ROLMUS", "country": "Польща", "address": "ul. Akacjowa 662-300 Września", "contact_person": "Mieczysław Szymkowiak", "position": "", "phone": "+48 61 4366 754", "phone_2": "", "email": "biuro@rolmus.com.pl", "website": "https://www.rolmus.com.pl/rozsiewacze.html", "notes": "Виробник запчастин до вітчизняної польської техніки"},
-        {"name": "HUO SHIN ENTERPRISE CO.", "country": "Китай", "address": "", "contact_person": "Julie Wang", "position": "", "phone": "+88647713096", "phone_2": "", "email": "huoshin@ms16.hinet.net", "website": "http://www.wlk.com.tw", "notes": "Виробник сальників та прокладок"},
-        {"name": "ZYCHAR", "country": "Польща", "address": "ul. Rolna 4 23-400 Biłgoraj", "contact_person": "", "position": "", "phone": "84 307 01 01", "phone_2": "", "email": "biuro@zychar.pl", "website": "https://www.zychar.pl/", "notes": "Виготовлення бортів до причепів"}
-    ]
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    imported = 0
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-
-    for p in partners_data:
-        cursor.execute("SELECT id FROM clients WHERE LOWER(name) = LOWER(%s)", (p['name'],))
-        row = cursor.fetchone()
-        if not row:
-            cursor.execute("""
-                INSERT INTO clients (
-                    name, country, address, contact_person, position, phone, phone_2, 
-                    email, website, buyer_type, interest_level, is_active, deal_stage
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'постачальник', 'середня зацікавленість', TRUE, 'none')
-                RETURNING id
-            """, (
-                p['name'], p['country'], p['address'], p['contact_person'], p['position'],
-                p['phone'], p['phone_2'], p['email'], p['website']
-            ))
-            client_id = cursor.fetchone()[0]
-            
-            if p['notes']:
-                cursor.execute("""
-                    INSERT INTO negotiations (client_id, date, result, author)
-                    VALUES (%s, %s, %s, %s)
-                """, (client_id, now_str, f"📋 [Нотатки постачальника]: {p['notes']}", 'CEO'))
-            imported += 1
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return f"<div style='font-family: sans-serif; padding: 30px; text-align: center;'><h2>✅ Успішно імпортовано {imported} постачальників!</h2><br><a href='/' style='background: #2D7F35; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;'>Повернутися в CRM</a></div>"
 
 @app.route('/toggle_client_status/<int:client_id>', methods=['POST'])
 @login_required
@@ -617,112 +562,6 @@ def add_quick_sale(client_id):
         conn.close()
         
     return redirect(url_for('client_detail', client_id=client_id))
-
-@app.route('/detect_brands_ai/<int:client_id>', methods=['POST'])
-@login_required
-def detect_brands_ai(client_id):
-    if not GEMINI_API_KEY:
-        return jsonify({'success': False, 'message': 'Змінна GEMINI_API_KEY не налаштована!'})
-        
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=DictCursor)
-    cursor.execute("SELECT id, name, website, brands, aftermarket_companies FROM clients WHERE id = %s", (client_id,))
-    client = cursor.fetchone()
-    
-    if not client or not client['website']:
-        cursor.close()
-        conn.close()
-        return jsonify({'success': False, 'message': 'У клієнта відсутній веб-сайт для аналізу!'})
-        
-    client_name = client['name']
-    site_url = client['website'].strip()
-    if not site_url.startswith('http'):
-        site_url = "http://" + site_url
-
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-    }
-    extracted_text = ""
-    
-    try:
-        page_res = requests.get(site_url, headers=headers, timeout=8, verify=False)
-        if page_res.status_code == 200:
-            soup = BeautifulSoup(page_res.text, 'html.parser')
-            alts = [img.get('alt', '') for img in soup.find_all('img') if img.get('alt')]
-            titles = [a.get('title', '') for a in soup.find_all('a') if a.get('title')]
-            meta_brand_text = " ".join(alts + titles)
-
-            for element in soup(["script", "style", "svg", "noscript"]):
-                element.extract()
-                
-            raw_page_text = soup.get_text(separator=' ', strip=True)
-            extracted_text = f"{meta_brand_text} {raw_page_text}"[:40000]
-    except Exception as e:
-        print(f"Помилка завантаження HTML {site_url}: {e}")
-
-    prompt = f"""
-    Проаналізуй контент сайту '{client_name}' ({site_url}):
-
-    --- КОНТЕНТ САЙТУ ---
-    {extracted_text if extracted_text else "Текст сайту недоступний, використовуй знання про " + client_name}
-    --- КІНЕЦЬ КОНТЕНТУ ---
-
-    Поверни ВИКЛЮЧНО JSON:
-    {{
-        "brands": ["Vaderstad", "Gaspardo"],
-        "aftermarket": ["Granit Parts", "Kramp"]
-    }}
-    """
-    
-    try:
-        host = "generativelanguage.googleapis.com"
-        model_path = "v1beta/models/gemini-2.5-flash:generateContent"
-        url = "https://" + host + "/" + model_path + "?key=" + str(GEMINI_API_KEY).strip()
-        
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.0}
-        }
-        
-        res = requests.post(url, json=payload, timeout=15)
-        res_data = res.json()
-        
-        if 'error' in res_data:
-            cursor.close()
-            conn.close()
-            return jsonify({'success': False, 'message': f"Помилка API: {res_data['error'].get('message')}"})
-            
-        raw_text = res_data['candidates'][0]['content']['parts'][0]['text']
-        raw_text = raw_text.replace('```json', '').replace('```', '').strip()
-        result_data = json.loads(raw_text)
-        
-        detected_brands = result_data.get('brands', [])
-        detected_aftermarket = result_data.get('aftermarket', [])
-        
-        final_brands_str = ", ".join(sorted(detected_brands)) if detected_brands else "-"
-        
-        current_aftermarket = [a.strip() for a in (client['aftermarket_companies'] or '').split(',') if a.strip() and a.strip() != '-']
-        final_aftermarket_set = set(current_aftermarket + detected_aftermarket)
-        final_aftermarket_str = ", ".join(sorted(final_aftermarket_set)) if final_aftermarket_set else "-"
-        
-        cursor.execute("UPDATE clients SET brands = %s, aftermarket_companies = %s WHERE id = %s", 
-                       (final_brands_str, final_aftermarket_str, client_id))
-        conn.commit()
-        cursor.close()
-        conn.close()
-        
-        return jsonify({
-            'success': True,
-            'brands': detected_brands,
-            'aftermarket': list(final_aftermarket_set),
-            'detected_aftermarket': detected_aftermarket,
-            'message': "Дані успішно оновлено через ШІ"
-        })
-        
-    except Exception as e:
-        cursor.close()
-        conn.close()
-        return jsonify({'success': False, 'message': f"Помилка аналізу: {str(e)}"})
 
 @app.route('/add_lost_demand', methods=['POST'])
 @login_required
@@ -924,6 +763,7 @@ def delete_task(task_id):
 @login_required
 def add_client():
     name = request.form.get('name')
+    nip = request.form.get('nip', '').strip()
     country = request.form.get('country', '')
     address = request.form.get('address', '')
     buyer_type = request.form.get('buyer_type', 'постачальник')
@@ -957,10 +797,10 @@ def add_client():
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            """INSERT INTO clients (name, country, address, contact_person, position, phone, email, website, buyer_type, brands, 
+            """INSERT INTO clients (name, nip, country, address, contact_person, position, phone, email, website, buyer_type, brands, 
                                    contact_person_2, position_2, phone_2, email_2, interest_level, next_event_date, next_event_type, mayer_reg, whatsapp_1, whatsapp_2, is_active, deal_stage, aftermarket_companies) 
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s, %s)""",
-            (name, country, address, contact_person, position, phone, email, website, buyer_type, brands,
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s, %s)""",
+            (name, nip, country, address, contact_person, position, phone, email, website, buyer_type, brands,
              contact_person_2, position_2, phone_2, email_2, interest_level, next_event_date, next_event_type, mayer_reg, whatsapp_1, whatsapp_2, deal_stage, aftermarket_companies)
         )
         conn.commit()
@@ -972,6 +812,7 @@ def add_client():
 @login_required
 def edit_client(client_id):
     name = request.form.get('name')
+    nip = request.form.get('nip', '').strip()
     country = request.form.get('country', '')
     address = request.form.get('address', '')
     buyer_type = request.form.get('buyer_type', 'постачальник')
@@ -1005,10 +846,10 @@ def edit_client(client_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            """UPDATE clients SET name=%s, country=%s, address=%s, contact_person=%s, position=%s, phone=%s, email=%s, 
+            """UPDATE clients SET name=%s, nip=%s, country=%s, address=%s, contact_person=%s, position=%s, phone=%s, email=%s, 
                                   website=%s, buyer_type=%s, brands=%s, contact_person_2=%s, position_2=%s, 
                                   phone_2=%s, email_2=%s, interest_level=%s, next_event_date=%s, next_event_type=%s, mayer_reg=%s, whatsapp_1=%s, whatsapp_2=%s, deal_stage=%s, aftermarket_companies=%s WHERE id=%s""",
-            (name, country, address, contact_person, position, phone, email, website, buyer_type, brands,
+            (name, nip, country, address, contact_person, position, phone, email, website, buyer_type, brands,
              contact_person_2, position_2, phone_2, email_2, interest_level, next_event_date, next_event_type, mayer_reg, whatsapp_1, whatsapp_2, deal_stage, aftermarket_companies, client_id)
         )
         conn.commit()
@@ -1133,7 +974,7 @@ def client_detail(client_id):
     raw_client = cursor.fetchone()
     
     client = dict(raw_client) if raw_client else {}
-    fields_to_check = ['buyer_type', 'brands', 'website', 'country', 'address', 
+    fields_to_check = ['nip', 'buyer_type', 'brands', 'website', 'country', 'address', 
                        'contact_person', 'position', 'phone', 'email', 
                        'contact_person_2', 'position_2', 'phone_2', 'email_2', 
                        'interest_level', 'next_event_date', 'next_event_type', 'mayer_reg', 'whatsapp_1', 'whatsapp_2',
@@ -1222,7 +1063,7 @@ def delete_negotiation(neg_id):
 def export_excel():
     conn = get_db_connection()
     query = """
-        SELECT c.name AS "Назва компанії", c.interest_level AS "Зацікавленість", 
+        SELECT c.name AS "Назва компанії", c.nip AS "NIP / TAX ID", c.interest_level AS "Зацікавленість", 
                CASE 
                    WHEN c.deal_stage = 'request' THEN '1. Запит / Підбір'
                    WHEN c.deal_stage = 'offer_sent' THEN '2. Рахунок (КП) надіслано'
@@ -1230,8 +1071,7 @@ def export_excel():
                    WHEN c.deal_stage = 'regular' THEN '4. Постійний партнер'
                    ELSE 'Немає активної угоди'
                END AS "Етап угоди",
-               c.buyer_type AS "Тип партнера", c.brands AS "Бренди",
-               c.aftermarket_companies AS "Aftermarket оператори",
+               c.buyer_type AS "Тип контрагента",
                c.website AS "Веб-сайт", c.country AS "Країна", c.address AS "Адреса",
                c.contact_person AS "Контактна особа 1", c.position AS "Посада 1", c.phone AS "Телефон 1", c.whatsapp_1 AS "WhatsApp 1", c.email AS "Email 1",
                c.contact_person_2 AS "Контактна особа 2", c.position_2 AS "Посада 2", c.phone_2 AS "Телефон 2", c.whatsapp_2 AS "WhatsApp 2", c.email_2 AS "Email 2",
