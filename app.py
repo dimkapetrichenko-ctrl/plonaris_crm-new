@@ -479,56 +479,260 @@ def index():
         top_demand=top_demand
     )
 
-# МАРШРУТИ БЛОКНОТА
-@app.route('/notes')
+# АРХІВАЦІЯ / ВІДНОВЛЕННЯ КЛІЄНТА
+@app.route('/toggle_client_status/<int:client_id>', methods=['POST'])
 @login_required
-def get_notes():
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=DictCursor)
-    cursor.execute("""
-        SELECT id, title, content, 
-               TO_CHAR(created_at, 'DD.MM.YYYY') as page_date,
-               TO_CHAR(updated_at, 'YYYY-MM-DD HH24:MI') as updated_at 
-        FROM notebook_pages 
-        ORDER BY id ASC
-    """)
-    notes = [dict(r) for r in cursor.fetchall()]
-    cursor.close()
-    conn.close()
-    return jsonify({'success': True, 'notes': notes})
-
-@app.route('/save_note', methods=['POST'])
-@login_required
-def save_note():
-    data = request.get_json() or {}
-    note_id = data.get('id')
-    title = data.get('title', 'Без назви').strip() or 'Без назви'
-    content = data.get('content', '')
+def toggle_client_status(client_id):
+    action = request.form.get('action')
+    reason = request.form.get('reason', '').strip()
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    if note_id:
-        cursor.execute("UPDATE notebook_pages SET title = %s, content = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s RETURNING id", (title, content, note_id))
+    current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
+    
+    if action == 'deactivate':
+        cursor.execute("UPDATE clients SET is_active = FALSE, deactivation_reason = %s WHERE id = %s", (reason, client_id))
+        log_text = f"⛔ [ДЕАКТИВАЦІЯ] Переведено в архів. Причина: {reason or 'Не вказано'}"
+        cursor.execute("INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, %s)", (client_id, current_date, log_text, 'CEO'))
     else:
-        cursor.execute("INSERT INTO notebook_pages (title, content) VALUES (%s, %s) RETURNING id", (title, content))
-    saved_id = cursor.fetchone()[0]
+        cursor.execute("UPDATE clients SET is_active = TRUE, deactivation_reason = NULL WHERE id = %s", (client_id,))
+        log_text = "🟢 [АКТИВАЦІЯ] Відновлено з архіву в активну базу."
+        cursor.execute("INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, %s)", (client_id, current_date, log_text, 'CEO'))
+        
     conn.commit()
     cursor.close()
     conn.close()
-    return jsonify({'success': True, 'id': saved_id})
+    return redirect(url_for('client_detail', client_id=client_id))
 
-@app.route('/delete_note/<int:note_id>', methods=['POST'])
+# ДЕТАЛІ КЛІЄНТА
+@app.route('/client/<int:client_id>', methods=['GET', 'POST'])
 @login_required
-def delete_note(note_id):
+def client_detail(client_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=DictCursor)
+    
+    if request.method == 'POST':
+        result_text = request.form.get('result')
+        author = request.form.get('author', 'Продажі') 
+        contact_type = request.form.get('contact_type', 'call')
+        
+        type_tags = {
+            'call': '[📞 Дзвінок] ',
+            'visit': '[🚗 Візит] ',
+            'email': '[✉️ Лист] '
+        }
+        prefix = type_tags.get(contact_type, '')
+        
+        if result_text:
+            final_text = f"{prefix}{result_text}"
+            current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
+            cursor.execute(
+                "INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, %s)",
+                (client_id, current_date, final_text, author)
+            )
+            conn.commit()
+        return redirect(url_for('client_detail', client_id=client_id))
+        
+    cursor.execute("SELECT * FROM clients WHERE id = %s", (client_id,))
+    raw_client = cursor.fetchone()
+    
+    client = dict(raw_client) if raw_client else {}
+    fields_to_check = ['nip', 'buyer_type', 'brands', 'website', 'country', 'address', 
+                       'contact_person', 'position', 'phone', 'email', 
+                       'contact_person_2', 'position_2', 'phone_2', 'email_2', 
+                       'interest_level', 'next_event_date', 'next_event_type', 'mayer_reg', 'whatsapp_1', 'whatsapp_2',
+                       'is_active', 'deactivation_reason', 'deal_stage', 'aftermarket_companies']
+    for field in fields_to_check:
+        if field not in client or client[field] is None:
+            if field == 'interest_level':
+                client[field] = 'не опрацьовано'
+            elif field == 'deal_stage':
+                client[field] = 'none'
+            elif field == 'mayer_reg':
+                client[field] = 'Ні'
+            elif field == 'is_active':
+                client[field] = True
+            elif field == 'buyer_type':
+                client[field] = 'постачальник'
+            else:
+                client[field] = ''
+    
+    cursor.execute("SELECT COUNT(*), COALESCE(SUM(actual_amount), 0) FROM sales_plans WHERE client_id = %s AND actual_amount > 0", (client_id,))
+    deal_stats_row = cursor.fetchone()
+    deal_count = deal_stats_row[0] if deal_stats_row else 0
+    deal_total_sum = float(deal_stats_row[1]) if deal_stats_row else 0.0
+
+    cursor.execute("SELECT * FROM negotiations WHERE client_id = %s ORDER BY id DESC", (client_id,))
+    history = cursor.fetchall()
+
+    cursor.execute("SELECT * FROM lost_demand WHERE client_id = %s ORDER BY id DESC", (client_id,))
+    client_lost_demand = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT next_event_date, COUNT(*) 
+        FROM clients 
+        WHERE next_event_date IS NOT NULL AND next_event_date != '' AND is_active IS NOT FALSE
+        GROUP BY next_event_date
+    """)
+    events_by_date = dict(cursor.fetchall())
+    json_events_by_date = json.dumps(events_by_date, ensure_ascii=False)
+
+    cursor.close()
+    conn.close()
+    return render_template(
+        'client.html', 
+        client=client, 
+        history=history, 
+        client_lost_demand=client_lost_demand, 
+        json_events_by_date=json_events_by_date,
+        deal_count=deal_count,
+        deal_total_sum=deal_total_sum
+    )
+
+# РЕДАГУВАННЯ ТА ВИДАЛЕННЯ АКТИВНОСТЕЙ
+@app.route('/edit_negotiation/<int:neg_id>', methods=['POST'])
+@login_required
+def edit_negotiation(neg_id):
+    client_id = request.form.get('client_id')
+    result_text = request.form.get('result')
+    if result_text:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE negotiations SET result = %s WHERE id = %s", (result_text, neg_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+    return redirect(url_for('client_detail', client_id=client_id))
+
+@app.route('/delete_negotiation/<int:neg_id>', methods=['POST'])
+@login_required
+def delete_negotiation(neg_id):
+    client_id = request.form.get('client_id')
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM notebook_pages WHERE id = %s", (note_id,))
+    try:
+        cursor.execute("DELETE FROM negotiations WHERE id = %s", (neg_id,))
+        conn.commit()
+    except Exception as e:
+        print(f"❌ Помилка видалення: {str(e)}")
+        conn.rollback()
+    finally:
+        cursor.close()
+        conn.close()
+        
+    return redirect(url_for('client_detail', client_id=client_id))
+
+# РЕДАГУВАННЯ ТА ВИДАЛЕННЯ КЛІЄНТІВ
+@app.route('/add_client', methods=['POST'])
+@login_required
+def add_client():
+    name = request.form.get('name')
+    nip = request.form.get('nip', '').strip()
+    country = request.form.get('country', '')
+    address = request.form.get('address', '')
+    buyer_type = request.form.get('buyer_type', 'постачальник')
+    interest_level = request.form.get('interest_level', 'не опрацьовано')
+    deal_stage = request.form.get('deal_stage', 'none')
+    website = request.form.get('website', '')
+    next_event_date = request.form.get('next_event_date', '')
+    next_event_type = request.form.get('next_event_type', '')
+    mayer_reg = request.form.get('mayer_reg', 'Ні')
+    whatsapp_1 = request.form.get('whatsapp_1', '')
+    whatsapp_2 = request.form.get('whatsapp_2', '')
+    aftermarket_companies = request.form.get('aftermarket_companies', '').strip()
+    
+    if interest_level != 'зацікавленість':
+        deal_stage = 'none'
+
+    selected_brands = request.form.getlist('brands')
+    brands = ", ".join(selected_brands) if selected_brands else ""
+    
+    contact_person = request.form.get('contact_person', '')
+    position = request.form.get('position', '')
+    phone = request.form.get('phone', '')
+    email = request.form.get('email', '')
+    
+    contact_person_2 = request.form.get('contact_person_2', '')
+    position_2 = request.form.get('position_2', '')
+    phone_2 = request.form.get('phone_2', '')
+    email_2 = request.form.get('email_2', '')
+    
+    if name:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """INSERT INTO clients (name, nip, country, address, contact_person, position, phone, email, website, buyer_type, brands, 
+                                   contact_person_2, position_2, phone_2, email_2, interest_level, next_event_date, next_event_type, mayer_reg, whatsapp_1, whatsapp_2, is_active, deal_stage, aftermarket_companies) 
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s, %s)""",
+            (name, nip, country, address, contact_person, position, phone, email, website, buyer_type, brands,
+             contact_person_2, position_2, phone_2, email_2, interest_level, next_event_date, next_event_type, mayer_reg, whatsapp_1, whatsapp_2, deal_stage, aftermarket_companies)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/edit_client/<int:client_id>', methods=['POST'])
+@login_required
+def edit_client(client_id):
+    name = request.form.get('name')
+    nip = request.form.get('nip', '').strip()
+    country = request.form.get('country', '')
+    address = request.form.get('address', '')
+    buyer_type = request.form.get('buyer_type', 'постачальник')
+    interest_level = request.form.get('interest_level', 'не опрацьовано')
+    deal_stage = request.form.get('deal_stage', 'none')
+    website = request.form.get('website', '')
+    next_event_date = request.form.get('next_event_date', '')
+    next_event_type = request.form.get('next_event_type', '')
+    mayer_reg = request.form.get('mayer_reg', 'Ні')
+    whatsapp_1 = request.form.get('whatsapp_1', '')
+    whatsapp_2 = request.form.get('whatsapp_2', '')
+    aftermarket_companies = request.form.get('aftermarket_companies', '').strip()
+    
+    if interest_level != 'зацікавленість':
+        deal_stage = 'none'
+        
+    selected_brands = request.form.getlist('brands')
+    brands = ", ".join(selected_brands) if selected_brands else ""
+    
+    contact_person = request.form.get('contact_person', '')
+    position = request.form.get('position', '')
+    phone = request.form.get('phone', '')
+    email = request.form.get('email', '')
+    
+    contact_person_2 = request.form.get('contact_person_2', '')
+    position_2 = request.form.get('position_2', '')
+    phone_2 = request.form.get('phone_2', '')
+    email_2 = request.form.get('email_2', '')
+    
+    if name:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """UPDATE clients SET name=%s, nip=%s, country=%s, address=%s, contact_person=%s, position=%s, phone=%s, email=%s, 
+                                  website=%s, buyer_type=%s, brands=%s, contact_person_2=%s, position_2=%s, 
+                                  phone_2=%s, email_2=%s, interest_level=%s, next_event_date=%s, next_event_type=%s, mayer_reg=%s, whatsapp_1=%s, whatsapp_2=%s, deal_stage=%s, aftermarket_companies=%s WHERE id=%s""",
+            (name, nip, country, address, contact_person, position, phone, email, website, buyer_type, brands,
+             contact_person_2, position_2, phone_2, email_2, interest_level, next_event_date, next_event_type, mayer_reg, whatsapp_1, whatsapp_2, deal_stage, aftermarket_companies, client_id)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+    return redirect(url_for('client_detail', client_id=client_id))
+
+@app.route('/delete_client/<int:client_id>', methods=['POST'])
+@login_required
+def delete_client(client_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM clients WHERE id = %s", (client_id,))
     conn.commit()
     cursor.close()
     conn.close()
-    return jsonify({'success': True})
+    return redirect(url_for('index'))
 
-# РУЧНЕ ВВЕДЕННЯ ОПЛАТИ (ФАКТИЧНОГО НАДХОДЖЕННЯ)
+# РУЧНІ ОПЛАТИ ТА ПЛАНУВАННЯ
 @app.route('/add_direct_payment', methods=['POST'])
 @login_required
 def add_direct_payment():
@@ -577,7 +781,6 @@ def add_direct_payment():
 
     return redirect(url_for('index', tab='finance', finance_month=month_name))
 
-# ШВИДКА ФІКСАЦІЯ З КАРТКИ КЛІЄНТА В PLN
 @app.route('/add_quick_sale/<int:client_id>', methods=['POST'])
 @login_required
 def add_quick_sale(client_id):
@@ -623,7 +826,7 @@ def add_quick_sale(client_id):
             )
         else:
             cursor.execute(
-                "INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date) VALUES (%s, %s, %s, %s, %s)",
+                "INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date) VALUES (%s, 0.0, %s, %s, %s)",
                 (client_id, 0.0, month_name, amt_val, payment_date)
             )
         
@@ -653,7 +856,96 @@ def add_quick_sale(client_id):
         
     return redirect(url_for('client_detail', client_id=client_id))
 
-# ЗЧИТУВАННЯ PDF-РАХУНКІВ У PLN
+@app.route('/edit_finance_plan/<int:plan_id>', methods=['POST'])
+@login_required
+def edit_finance_plan(plan_id):
+    planned_amount = request.form.get('planned_amount', 0)
+    month_name = request.form.get('month_name', '')
+    actual_amount = request.form.get('actual_amount', 0)
+    payment_date = request.form.get('payment_date', '')
+    
+    try:
+        p_amt = float(planned_amount) if planned_amount else 0.0
+    except Exception:
+        p_amt = 0.0
+
+    try:
+        a_amt = float(actual_amount) if actual_amount else 0.0
+    except Exception:
+        a_amt = 0.0
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE sales_plans 
+        SET planned_amount = %s, month_name = %s, actual_amount = %s, payment_date = %s 
+        WHERE id = %s
+    """, (p_amt, month_name, a_amt, payment_date, plan_id))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return redirect(url_for('index', tab='finance', finance_month=month_name))
+
+@app.route('/delete_finance_plan/<int:plan_id>', methods=['POST'])
+@login_required
+def delete_finance_plan(plan_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM sales_plans WHERE id = %s", (plan_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return redirect(url_for('index', tab='finance'))
+
+@app.route('/add_finance_plan', methods=['POST'])
+@login_required
+def add_finance_plan():
+    client_id = request.form.get('client_id')
+    planned_amount = request.form.get('planned_amount', 0)
+    month_name = request.form.get('month_name', '')
+    actual_amount = request.form.get('actual_amount', 0)
+    payment_date = request.form.get('payment_date', '')
+    
+    try:
+        p_amt = float(planned_amount) if planned_amount else 0.0
+    except Exception:
+        p_amt = 0.0
+
+    try:
+        a_amt = float(actual_amount) if actual_amount else 0.0
+    except Exception:
+        a_amt = 0.0
+
+    if client_id:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            "SELECT id, planned_amount, actual_amount FROM sales_plans WHERE client_id = %s ORDER BY id DESC LIMIT 1",
+            (client_id,)
+        )
+        existing = cursor.fetchone()
+        
+        if existing:
+            plan_id = existing[0]
+            cur_fact = float(existing[2] or 0)
+            new_fact = cur_fact + a_amt if a_amt > 0 else cur_fact
+            cursor.execute(
+                "UPDATE sales_plans SET planned_amount = %s, month_name = %s, actual_amount = %s, payment_date = COALESCE(NULLIF(%s, ''), payment_date) WHERE id = %s",
+                (p_amt, month_name, new_fact, payment_date, plan_id)
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date) VALUES (%s, %s, %s, %s, %s)",
+                (client_id, p_amt, month_name, a_amt, payment_date if payment_date else None)
+            )
+            
+        conn.commit()
+        cursor.close()
+        conn.close()
+    return redirect(url_for('index', tab='finance', finance_month=month_name))
+
+# ЗЧИТУВАННЯ PDF-РАХУНКІВ
 @app.route('/upload_invoice_pdf', methods=['POST'])
 @login_required
 def upload_invoice_pdf():
@@ -793,324 +1085,56 @@ def upload_invoice_pdf():
     except Exception as e:
         return jsonify({'success': False, 'message': f'Помилка обробки PDF: {str(e)}'})
 
-# РЕДАГУВАННЯ ФІНАНСОВОГО ЗАПИСУ
-@app.route('/edit_finance_plan/<int:plan_id>', methods=['POST'])
+# МАРШРУТИ БЛОКНОТА
+@app.route('/notes')
 @login_required
-def edit_finance_plan(plan_id):
-    planned_amount = request.form.get('planned_amount', 0)
-    month_name = request.form.get('month_name', '')
-    actual_amount = request.form.get('actual_amount', 0)
-    payment_date = request.form.get('payment_date', '')
-    
-    try:
-        p_amt = float(planned_amount) if planned_amount else 0.0
-    except Exception:
-        p_amt = 0.0
-
-    try:
-        a_amt = float(actual_amount) if actual_amount else 0.0
-    except Exception:
-        a_amt = 0.0
-        
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE sales_plans 
-        SET planned_amount = %s, month_name = %s, actual_amount = %s, payment_date = %s 
-        WHERE id = %s
-    """, (p_amt, month_name, a_amt, payment_date, plan_id))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return redirect(url_for('index', tab='finance', finance_month=month_name))
-
-# ВИДАЛЕННЯ ФІНАНСОВОГО ЗАПИСУ
-@app.route('/delete_finance_plan/<int:plan_id>', methods=['POST'])
-@login_required
-def delete_finance_plan(plan_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM sales_plans WHERE id = %s", (plan_id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return redirect(url_for('index', tab='finance'))
-
-# СТВОРЕННЯ ПЛАНУ НАДХОДЖЕННЯ
-@app.route('/add_finance_plan', methods=['POST'])
-@login_required
-def add_finance_plan():
-    client_id = request.form.get('client_id')
-    planned_amount = request.form.get('planned_amount', 0)
-    month_name = request.form.get('month_name', '')
-    actual_amount = request.form.get('actual_amount', 0)
-    payment_date = request.form.get('payment_date', '')
-    
-    try:
-        p_amt = float(planned_amount) if planned_amount else 0.0
-    except Exception:
-        p_amt = 0.0
-
-    try:
-        a_amt = float(actual_amount) if actual_amount else 0.0
-    except Exception:
-        a_amt = 0.0
-
-    if client_id:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute(
-            "SELECT id, planned_amount, actual_amount FROM sales_plans WHERE client_id = %s ORDER BY id DESC LIMIT 1",
-            (client_id,)
-        )
-        existing = cursor.fetchone()
-        
-        if existing:
-            plan_id = existing[0]
-            cur_fact = float(existing[2] or 0)
-            new_fact = cur_fact + a_amt if a_amt > 0 else cur_fact
-            cursor.execute(
-                "UPDATE sales_plans SET planned_amount = %s, month_name = %s, actual_amount = %s, payment_date = COALESCE(NULLIF(%s, ''), payment_date) WHERE id = %s",
-                (p_amt, month_name, new_fact, payment_date, plan_id)
-            )
-        else:
-            cursor.execute(
-                "INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date) VALUES (%s, %s, %s, %s, %s)",
-                (client_id, p_amt, month_name, a_amt, payment_date if payment_date else None)
-            )
-            
-        conn.commit()
-        cursor.close()
-        conn.close()
-    return redirect(url_for('index', tab='finance', finance_month=month_name))
-
-# СТВОРЕННЯ КЛІЄНТА
-@app.route('/add_client', methods=['POST'])
-@login_required
-def add_client():
-    name = request.form.get('name')
-    nip = request.form.get('nip', '').strip()
-    country = request.form.get('country', '')
-    address = request.form.get('address', '')
-    buyer_type = request.form.get('buyer_type', 'постачальник')
-    interest_level = request.form.get('interest_level', 'не опрацьовано')
-    deal_stage = request.form.get('deal_stage', 'none')
-    website = request.form.get('website', '')
-    next_event_date = request.form.get('next_event_date', '')
-    next_event_type = request.form.get('next_event_type', '')
-    mayer_reg = request.form.get('mayer_reg', 'Ні')
-    whatsapp_1 = request.form.get('whatsapp_1', '')
-    whatsapp_2 = request.form.get('whatsapp_2', '')
-    aftermarket_companies = request.form.get('aftermarket_companies', '').strip()
-    
-    if interest_level != 'зацікавленість':
-        deal_stage = 'none'
-
-    selected_brands = request.form.getlist('brands')
-    brands = ", ".join(selected_brands) if selected_brands else ""
-    
-    contact_person = request.form.get('contact_person', '')
-    position = request.form.get('position', '')
-    phone = request.form.get('phone', '')
-    email = request.form.get('email', '')
-    
-    contact_person_2 = request.form.get('contact_person_2', '')
-    position_2 = request.form.get('position_2', '')
-    phone_2 = request.form.get('phone_2', '')
-    email_2 = request.form.get('email_2', '')
-    
-    if name:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            """INSERT INTO clients (name, nip, country, address, contact_person, position, phone, email, website, buyer_type, brands, 
-                                   contact_person_2, position_2, phone_2, email_2, interest_level, next_event_date, next_event_type, mayer_reg, whatsapp_1, whatsapp_2, is_active, deal_stage, aftermarket_companies) 
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s, %s)""",
-            (name, nip, country, address, contact_person, position, phone, email, website, buyer_type, brands,
-             contact_person_2, position_2, phone_2, email_2, interest_level, next_event_date, next_event_type, mayer_reg, whatsapp_1, whatsapp_2, deal_stage, aftermarket_companies)
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/edit_client/<int:client_id>', methods=['POST'])
-@login_required
-def edit_client(client_id):
-    name = request.form.get('name')
-    nip = request.form.get('nip', '').strip()
-    country = request.form.get('country', '')
-    address = request.form.get('address', '')
-    buyer_type = request.form.get('buyer_type', 'постачальник')
-    interest_level = request.form.get('interest_level', 'не опрацьовано')
-    deal_stage = request.form.get('deal_stage', 'none')
-    website = request.form.get('website', '')
-    next_event_date = request.form.get('next_event_date', '')
-    next_event_type = request.form.get('next_event_type', '')
-    mayer_reg = request.form.get('mayer_reg', 'Ні')
-    whatsapp_1 = request.form.get('whatsapp_1', '')
-    whatsapp_2 = request.form.get('whatsapp_2', '')
-    aftermarket_companies = request.form.get('aftermarket_companies', '').strip()
-    
-    if interest_level != 'зацікавленість':
-        deal_stage = 'none'
-        
-    selected_brands = request.form.getlist('brands')
-    brands = ", ".join(selected_brands) if selected_brands else ""
-    
-    contact_person = request.form.get('contact_person', '')
-    position = request.form.get('position', '')
-    phone = request.form.get('phone', '')
-    email = request.form.get('email', '')
-    
-    contact_person_2 = request.form.get('contact_person_2', '')
-    position_2 = request.form.get('position_2', '')
-    phone_2 = request.form.get('phone_2', '')
-    email_2 = request.form.get('email_2', '')
-    
-    if name:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            """UPDATE clients SET name=%s, nip=%s, country=%s, address=%s, contact_person=%s, position=%s, phone=%s, email=%s, 
-                                  website=%s, buyer_type=%s, brands=%s, contact_person_2=%s, position_2=%s, 
-                                  phone_2=%s, email_2=%s, interest_level=%s, next_event_date=%s, next_event_type=%s, mayer_reg=%s, whatsapp_1=%s, whatsapp_2=%s, deal_stage=%s, aftermarket_companies=%s WHERE id=%s""",
-            (name, nip, country, address, contact_person, position, phone, email, website, buyer_type, brands,
-             contact_person_2, position_2, phone_2, email_2, interest_level, next_event_date, next_event_type, mayer_reg, whatsapp_1, whatsapp_2, deal_stage, aftermarket_companies, client_id)
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
-    return redirect(url_for('client_detail', client_id=client_id))
-
-@app.route('/delete_client/<int:client_id>', methods=['POST'])
-@login_required
-def delete_client(client_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM clients WHERE id = %s", (client_id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/client/<int:client_id>', methods=['GET', 'POST'])
-@login_required
-def client_detail(client_id):
+def get_notes():
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=DictCursor)
-    
-    if request.method == 'POST':
-        result_text = request.form.get('result')
-        author = request.form.get('author', 'Продажі') 
-        contact_type = request.form.get('contact_type', 'call')
-        
-        type_tags = {
-            'call': '[📞 Дзвінок] ',
-            'visit': '[🚗 Візит] ',
-            'email': '[✉️ Лист] '
-        }
-        prefix = type_tags.get(contact_type, '')
-        
-        if result_text:
-            final_text = f"{prefix}{result_text}"
-            current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
-            cursor.execute(
-                "INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, %s)",
-                (client_id, current_date, final_text, author)
-            )
-            conn.commit()
-        return redirect(url_for('client_detail', client_id=client_id))
-        
-    cursor.execute("SELECT * FROM clients WHERE id = %s", (client_id,))
-    raw_client = cursor.fetchone()
-    
-    client = dict(raw_client) if raw_client else {}
-    fields_to_check = ['nip', 'buyer_type', 'brands', 'website', 'country', 'address', 
-                       'contact_person', 'position', 'phone', 'email', 
-                       'contact_person_2', 'position_2', 'phone_2', 'email_2', 
-                       'interest_level', 'next_event_date', 'next_event_type', 'mayer_reg', 'whatsapp_1', 'whatsapp_2',
-                       'is_active', 'deactivation_reason', 'deal_stage', 'aftermarket_companies']
-    for field in fields_to_check:
-        if field not in client or client[field] is None:
-            if field == 'interest_level':
-                client[field] = 'не опрацьовано'
-            elif field == 'deal_stage':
-                client[field] = 'none'
-            elif field == 'mayer_reg':
-                client[field] = 'Ні'
-            elif field == 'is_active':
-                client[field] = True
-            elif field == 'buyer_type':
-                client[field] = 'постачальник'
-            else:
-                client[field] = ''
-    
-    cursor.execute("SELECT COUNT(*), COALESCE(SUM(actual_amount), 0) FROM sales_plans WHERE client_id = %s AND actual_amount > 0", (client_id,))
-    deal_stats_row = cursor.fetchone()
-    deal_count = deal_stats_row[0] if deal_stats_row else 0
-    deal_total_sum = float(deal_stats_row[1]) if deal_stats_row else 0.0
-
-    cursor.execute("SELECT * FROM negotiations WHERE client_id = %s ORDER BY id DESC", (client_id,))
-    history = cursor.fetchall()
-
-    cursor.execute("SELECT * FROM lost_demand WHERE client_id = %s ORDER BY id DESC", (client_id,))
-    client_lost_demand = cursor.fetchall()
-
     cursor.execute("""
-        SELECT next_event_date, COUNT(*) 
-        FROM clients 
-        WHERE next_event_date IS NOT NULL AND next_event_date != '' AND is_active IS NOT FALSE
-        GROUP BY next_event_date
+        SELECT id, title, content, 
+               TO_CHAR(created_at, 'DD.MM.YYYY') as page_date,
+               TO_CHAR(updated_at, 'YYYY-MM-DD HH24:MI') as updated_at 
+        FROM notebook_pages 
+        ORDER BY id ASC
     """)
-    events_by_date = dict(cursor.fetchall())
-    json_events_by_date = json.dumps(events_by_date, ensure_ascii=False)
-
+    notes = [dict(r) for r in cursor.fetchall()]
     cursor.close()
     conn.close()
-    return render_template(
-        'client.html', 
-        client=client, 
-        history=history, 
-        client_lost_demand=client_lost_demand, 
-        json_events_by_date=json_events_by_date,
-        deal_count=deal_count,
-        deal_total_sum=deal_total_sum
-    )
+    return jsonify({'success': True, 'notes': notes})
 
-@app.route('/edit_negotiation/<int:neg_id>', methods=['POST'])
+@app.route('/save_note', methods=['POST'])
 @login_required
-def edit_negotiation(neg_id):
-    client_id = request.form.get('client_id')
-    result_text = request.form.get('result')
-    if result_text:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("UPDATE negotiations SET result = %s WHERE id = %s", (result_text, neg_id))
-        conn.commit()
-        cursor.close()
-        conn.close()
-    return redirect(url_for('client_detail', client_id=client_id))
-
-@app.route('/delete_negotiation/<int:neg_id>', methods=['POST'])
-@login_required
-def delete_negotiation(neg_id):
-    client_id = request.form.get('client_id')
+def save_note():
+    data = request.get_json() or {}
+    note_id = data.get('id')
+    title = data.get('title', 'Без назви').strip() or 'Без назви'
+    content = data.get('content', '')
+    
     conn = get_db_connection()
     cursor = conn.cursor()
-    try:
-        cursor.execute("DELETE FROM negotiations WHERE id = %s", (neg_id,))
-        conn.commit()
-    except Exception as e:
-        print(f"❌ Помилка видалення: {str(e)}")
-        conn.rollback()
-    finally:
-        cursor.close()
-        conn.close()
-        
-    return redirect(url_for('client_detail', client_id=client_id))
+    if note_id:
+        cursor.execute("UPDATE notebook_pages SET title = %s, content = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s RETURNING id", (title, content, note_id))
+    else:
+        cursor.execute("INSERT INTO notebook_pages (title, content) VALUES (%s, %s) RETURNING id", (title, content))
+    saved_id = cursor.fetchone()[0]
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'success': True, 'id': saved_id})
 
+@app.route('/delete_note/<int:note_id>', methods=['POST'])
+@login_required
+def delete_note(note_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM notebook_pages WHERE id = %s", (note_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'success': True})
+
+# ЕКСПОРТ EXCEL
 @app.route('/export_excel')
 @login_required
 def export_excel():
