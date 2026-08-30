@@ -19,15 +19,14 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
 
-app.secret_key = os.environ.get('SECRET_KEY', 'super-secret-key-change-me')
+app.secret_key = os.environ.get('SECRET_KEY', 'plonaris-crm-secret-key-2026')
 
 CRM_USERNAME = os.environ.get('CRM_USERNAME', 'admin')
-CRM_PASSWORD = os.environ.get('CRM_PASSWORD', 'Plonaris2026!') 
+CRM_PASSWORD = os.environ.get('CRM_PASSWORD', 'Plonaris2026') 
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 
-# Конфігурація бізнес-пошти Хостинг Україна з Render
 MAIL_SERVER = os.environ.get('MAIL_SERVER', 'mail.adm.tools')
 MAIL_PORT = 465
 MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
@@ -70,51 +69,26 @@ def decode_email_body(msg):
             
     return body.strip()
 
-def send_email_notification(to_email, subject, body_text, promo_banner=False):
+def send_email_notification(to_email, subject, body_text):
     if not MAIL_USERNAME or not MAIL_PASSWORD:
-        print("⚠️ Налаштування пошти відсутні в змінних оточення Render!")
+        print("⚠️ Налаштування пошти відсутні в змінних оточення!")
         return False
     try:
         html_body = body_text
-        logo_url = "https://my-crm-q24n.onrender.com/static/logotipnew.png" 
-        banner_url = "https://my-crm-q24n.onrender.com/static/promo_en.jpg"
-
-        banner_html = ""
-        if promo_banner:
-            banner_html = f"""
-            <div style="margin-bottom: 25px;">
-                <img src="{banner_url}" alt="MAYER PRO Promotion" style="max-width: 100%; height: auto; display: block; border-radius: 4px; border: 1px solid #dee2e6;">
-            </div>
-            """
-
         html_content = f"""
         <html>
-        <body style="font-family: 'Aptos', Calibri, Arial, sans-serif; color: #212529; line-height: 1.5;">
-            {banner_html}
-            <div style="font-size: 15px; margin-bottom: 30px;">
+        <body style="font-family: 'Aptos', Calibri, Arial, sans-serif; color: #1e293b; line-height: 1.6;">
+            <div style="font-size: 15px; margin-bottom: 25px;">
                 {html_body}
             </div>
-            <hr style="border: none; border-top: 1px solid #dee2e6; margin-top: 30px; margin-bottom: 20px;">
-            <table border="0" cellpadding="0" cellspacing="0" style="color: #212529;">
+            <hr style="border: none; border-top: 1px solid #d3e2d8; margin-top: 30px; margin-bottom: 20px;">
+            <table border="0" cellpadding="0" cellspacing="0" style="color: #1e293b;">
                 <tr>
-                    <td style="vertical-align: top; padding-right: 20px;">
-                        <img src="{logo_url}" alt="Mayer Pro Logo" width="220" style="display: block; max-width: 100%; height: auto;">
-                    </td>
-                    <td style="vertical-align: top; border-left: 2px solid #dc3545; padding-left: 15px; font-size: 16px;">
-                        <span style="color: #6c757d; font-style: italic;">Z poważaniem / Kindly regards</span><br><br>
-                        <strong style="font-size: 18px;">Dmytro Petrychenko</strong><br>
-                        <span style="color: #495057; font-weight: 500;">Regional spare parts manager</span><br>
-                        <strong style="color: #dc3545;">MAYER PRO S.r.o.</strong><br>
-                        📱 +421 907 933 441<br>
-                        📱 +48 501 166 523<br>
-                        🌐 <a href="https://mayer-pro.com/en" target="_blank" style="color: #0d6efd; text-decoration: none;">mayer-pro.com/en</a><br>
-                        📧 <a href="mailto:sales@mayer-pro.com" style="color: #0d6efd; text-decoration: none;">sales@mayer-pro.com</a>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2" style="padding-top: 15px; font-size: 12px; color: #6c757d; border-top: 1px dashed #dee2e6; margin-top: 15px;">
-                        <strong>Mayer Pro s.r.o.</strong> | Address: Jegenesska, 9, 82103 Bratislava, Slovakia<br>
-                        <strong>VAT-nr:</strong> SK 2121592088
+                    <td style="vertical-align: top; border-left: 3px solid #15803d; padding-left: 15px; font-size: 15px;">
+                        <span style="color: #64748b; font-style: italic;">Z poważaniem / Pozdrawiamy</span><br><br>
+                        <strong style="font-size: 18px; color: #15803d;">PLONARIS Sp. z o.o.</strong><br>
+                        <span style="color: #475569; font-weight: 500;">Dział Obsługi Klienta & Sprzedaży</span><br>
+                        📧 <a href="mailto:{MAIL_USERNAME}" style="color: #15803d; text-decoration: none;">{MAIL_USERNAME}</a>
                     </td>
                 </tr>
             </table>
@@ -596,7 +570,7 @@ def add_quick_sale(client_id):
 @login_required
 def detect_brands_ai(client_id):
     if not GEMINI_API_KEY:
-        return jsonify({'success': False, 'message': 'Змінна GEMINI_API_KEY не налаштована в Render!'})
+        return jsonify({'success': False, 'message': 'Змінна GEMINI_API_KEY не налаштована!'})
         
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=DictCursor)
@@ -618,13 +592,10 @@ def detect_brands_ai(client_id):
     }
     extracted_text = ""
     
-    # 1. Завантаження сторінки з витягуванням alt/title партнерів та тексту до 40 000 символів
     try:
         page_res = requests.get(site_url, headers=headers, timeout=8, verify=False)
         if page_res.status_code == 200:
             soup = BeautifulSoup(page_res.text, 'html.parser')
-            
-            # Збираємо підписи зображень та назви посилань (логотипи брендів у каталогах)
             alts = [img.get('alt', '') for img in soup.find_all('img') if img.get('alt')]
             titles = [a.get('title', '') for a in soup.find_all('a') if a.get('title')]
             meta_brand_text = " ".join(alts + titles)
@@ -641,42 +612,27 @@ def detect_brands_ai(client_id):
     Проаналізуй наведений нижче контент сайту/магазину запчастин '{client_name}' ({site_url}):
 
     --- КОНТЕНТ САЙТУ ТА КАТАЛОГУ ---
-    {extracted_text if extracted_text else "Текст сайту недоступний, використовуй точні знання про асортимент компанії " + client_name}
+    {extracted_text if extracted_text else "Текст сайту недоступний, використовуй знання про " + client_name}
     --- КІНЕЦЬ КОНТЕНТУ ---
 
-    Завдання 1: Визнач наявність запчастин або техніки до наступних брендів (враховуй різні форми написання та популярні агрегати):
-    - Vaderstad (враховуй: Vaderstad, Väderstad, Rapid, Carrier, TopDown, Tempo)
-    - Gaspardo (враховуй: Gaspardo, Maschio Gaspardo)
-    - Horsch (враховуй: Horsch, Pronto, Joker, Terrano, Tiger, Maestro)
-    - Kverneland (враховуй: Kverneland, Accord, Rau, Qualidisc, Exacta)
-    - Pottinger (враховуй: Pottinger, Pöttinger, Terradisc, Synkro, Lion, Aerosem)
+    Завдання 1: Визнач наявність запчастин до брендів:
+    - Vaderstad, Gaspardo, Horsch, Kverneland, Pottinger
 
-    Завдання 2: Визнач співпрацю з відомими aftermarket операторами / виробниками замінників:
-    - Granit Parts (враховуй: Granit, Granit Parts, Granit-Parts)
-    - Kramp
-    - Industriehof (враховуй: Industriehof Scherenbostel)
-    - Bepco
-    - Bellota
-    - Frank Walz (враховуй: Frank Walz, Frank Original)
-    - Molbro
-    - Waryński (враховуй: Waryński, Warynski)
-    - Premium Parts
+    Завдання 2: Визнач співпрацю з aftermarket операторами:
+    - Granit Parts, Kramp, Industriehof, Bepco, Bellota, Frank Walz, Molbro, Waryński, Premium Parts
 
-    Вимоги до результату:
-    Поверни ВИКЛЮЧНО JSON-об'єкт строго у такому форматі:
+    Вимоги:
+    Поверни ВИКЛЮЧНО JSON строго:
     {{
-        "brands": ["Vaderstad", "Gaspardo", "Kverneland"],
-        "aftermarket": ["Granit Parts", "Kramp", "Waryński"]
+        "brands": ["Vaderstad", "Gaspardo"],
+        "aftermarket": ["Granit Parts", "Kramp"]
     }}
-    Дозволені значення для brands: "Vaderstad", "Gaspardo", "Horsch", "Kverneland", "Pottinger".
-    Дозволені значення для aftermarket: "Granit Parts", "Kramp", "Industriehof", "Bepco", "Bellota", "Frank Walz", "Molbro", "Waryński", "Premium Parts".
-    Без markdown (без ```), без лапок на початку/кінці і без жодних додаткових пояснень.
+    Без markdown, без пояснень.
     """
     
-    # 2. Швидкий запит до Gemini
     try:
         host = "generativelanguage.googleapis.com"
-        model_path = "v1beta/models/gemini-3.6-flash:generateContent"
+        model_path = "v1beta/models/gemini-2.5-flash:generateContent"
         url = "https://" + host + "/" + model_path + "?key=" + str(GEMINI_API_KEY).strip()
         
         payload = {
@@ -701,7 +657,6 @@ def detect_brands_ai(client_id):
         
         final_brands_str = ", ".join(sorted(detected_brands)) if detected_brands else "-"
         
-        # Об'єднуємо наявні aftermarket оператори з виявленими
         current_aftermarket = [a.strip() for a in (client['aftermarket_companies'] or '').split(',') if a.strip() and a.strip() != '-']
         final_aftermarket_set = set(current_aftermarket + detected_aftermarket)
         final_aftermarket_str = ", ".join(sorted(final_aftermarket_set)) if final_aftermarket_set else "-"
@@ -712,24 +667,19 @@ def detect_brands_ai(client_id):
         cursor.close()
         conn.close()
         
-        msg_parts = []
-        if detected_brands:
-            msg_parts.append(f"Бренди: {', '.join(detected_brands)}")
-        if detected_aftermarket:
-            msg_parts.append(f"Aftermarket: {', '.join(detected_aftermarket)}")
-            
         return jsonify({
             'success': True,
             'brands': detected_brands,
             'aftermarket': list(final_aftermarket_set),
             'detected_aftermarket': detected_aftermarket,
-            'message': f"ШІ оновив дані: {'; '.join(msg_parts) if msg_parts else 'жодного зі списку не знайдено'}"
+            'message': "Дані успішно оновлено за допомогою ШІ"
         })
         
     except Exception as e:
         cursor.close()
         conn.close()
         return jsonify({'success': False, 'message': f"Помилка аналізу: {str(e)}"})
+
 @app.route('/add_lost_demand', methods=['POST'])
 @login_required
 def add_lost_demand():
@@ -785,17 +735,15 @@ def send_client_email():
     to_email = request.form.get('email', '').strip()
     subject = request.form.get('subject', '').strip()
     body_text = request.form.get('body', '').strip()
-    promo_banner = request.form.get('promo_banner') == 'on'
     
     if to_email and body_text:
-        success = send_email_notification(to_email, subject, body_text, promo_banner=promo_banner)
+        success = send_email_notification(to_email, subject, body_text)
         if success:
             current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
             conn = get_db_connection()
             cursor = conn.cursor()
             
-            banner_log = " (+ Англійський промо-банер)" if promo_banner else ""
-            log_text = f"Надіслано фірмовий HTML-Email{banner_log}. Тема: \"{subject}\""
+            log_text = f"Надіслано Email (Plonaris). Тема: \"{subject}\""
             
             cursor.execute(
                 "INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, %s)",
@@ -810,7 +758,7 @@ def send_client_email():
 @login_required
 def sync_emails():
     if not MAIL_USERNAME or not MAIL_PASSWORD:
-        return jsonify({'success': False, 'message': 'Налаштування IMAP відсутні на Render!'})
+        return jsonify({'success': False, 'message': 'Налаштування IMAP відсутні!'})
     try:
         mail = imaplib.IMAP4_SSL('mail.adm.tools', 993)
         mail.login(MAIL_USERNAME, MAIL_PASSWORD)
@@ -822,7 +770,7 @@ def sync_emails():
         if not email_ids:
             mail.close()
             mail.logout()
-            return jsonify({'success': True, 'message': 'Вхідна скринька перевірена. Нових листів від дилерів немає.'})
+            return jsonify({'success': True, 'message': 'Вхідна скринька перевірена. Нових листів немає.'})
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -870,7 +818,7 @@ def sync_emails():
         mail.close()
         mail.logout()
         
-        return jsonify({'success': True, 'message': f'Синхронізація завершена! Успішно імпортовано відповідей: {imported_count}'})
+        return jsonify({'success': True, 'message': f'Синхронізація завершена! Імпортовано відповідей: {imported_count}'})
     except Exception as e:
         return jsonify({'success': False, 'message': f'Помилка IMAP: {str(e)}'})
 
@@ -1215,7 +1163,7 @@ def delete_negotiation(neg_id):
         cursor.execute("DELETE FROM negotiations WHERE id = %s", (neg_id,))
         conn.commit()
     except Exception as e:
-        print(f"❌ Помилка видалення активності з бази: {str(e)}")
+        print(f"❌ Помилка видалення активності: {str(e)}")
         conn.rollback()
     finally:
         cursor.close()
@@ -1251,14 +1199,14 @@ def export_excel():
     
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Клієнти Mayer CRM')
+        df.to_excel(writer, index=False, sheet_name='Клієнти Plonaris')
     output.seek(0)
     
     return send_file(
         output,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         as_attachment=True,
-        download_name=f'Mayer_CRM_Clients_{datetime.now().strftime("%Y-%m-%d")}.xlsx'
+        download_name=f'Plonaris_CRM_Clients_{datetime.now().strftime("%Y-%m-%d")}.xlsx'
     )
 
 if __name__ == '__main__':
