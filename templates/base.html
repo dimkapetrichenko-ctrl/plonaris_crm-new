@@ -138,20 +138,20 @@
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom py-2 px-4 mb-4">
-        <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center gap-2 text-white" href="/">
-                <!-- Відображення файлу white logo.svg -->
-                <img src="{{ url_for('static', filename='white logo.svg') }}" alt="Plonaris" class="brand-logo-img">
-                <span class="badge bg-white text-success text-uppercase ms-2 border border-light fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px; color: #0E6330 !important;">CRM System</span>
+   <nav class="navbar navbar-expand-lg navbar-dark navbar-custom py-2 px-4 mb-4">
+    <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center gap-2 p-0" href="/">
+            <!-- Тільки сам векторний логотип без рамки та рамок навколо -->
+            <img src="{{ url_for('static', filename='white logo.svg') }}" alt="Plonaris" class="brand-logo-img">
+            <span class="badge bg-white text-success text-uppercase ms-2 border-0 fw-bold shadow-xs" style="font-size: 0.65rem; letter-spacing: 0.5px; color: #0B4F26 !important;">CRM System</span>
+        </a>
+        <div class="d-flex align-items-center gap-2">
+            <a href="/logout" class="btn btn-sm btn-header-exit d-flex align-items-center gap-1 fw-semibold">
+                <i class="bi bi-box-arrow-right"></i> Вийти
             </a>
-            <div class="d-flex align-items-center gap-2">
-                <a href="/logout" class="btn btn-sm btn-header-exit d-flex align-items-center gap-1 fw-semibold">
-                    <i class="bi bi-box-arrow-right"></i> Вийти
-                </a>
-            </div>
         </div>
-    </nav>
+    </div>
+</nav>
 
     <div class="container-fluid px-4 pb-4">
         {% block content %}{% endblock %}
