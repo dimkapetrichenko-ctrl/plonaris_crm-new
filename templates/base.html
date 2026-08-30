@@ -145,7 +145,7 @@
         <div class="container-fluid">
             <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-white" href="/">
                 <!-- Логотип компанії Plonaris -->
-                <img src="/static/logo.png" alt="Plonaris Logo" class="brand-logo-img" onerror="this.style.display='none'; document.getElementById('default-brand-icon').style.display='flex';">
+                <img src="{{ url_for('static', filename='white logo.svg') }}" alt="Plonaris Logo" class="brand-logo-img" style="height: 38px; width: auto; object-fit: contain;">
                 
                 <!-- Запасна векторна іконка, якщо logo.png ще не завантажено -->
                 <span id="default-brand-icon" class="bg-white text-success rounded-circle p-1 align-items-center justify-content-center shadow-xs" style="width: 32px; height: 32px; display: none;">
