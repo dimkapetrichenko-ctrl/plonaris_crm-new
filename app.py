@@ -732,7 +732,7 @@ def delete_client(client_id):
     conn.close()
     return redirect(url_for('index'))
 
-# ЗМІНА СТАТУСУ ОПЛАТИ (ПЕРЕМИКАЧ ВРУЧНУ: "ЧЕКАЄМО ОПЛАТУ" <-> "ОПЛАЧЕНО")
+# ЗМІНА СТАТУСУ ОПЛАТИ (ПЕРЕМИКАЧ ВРУЧНУ)
 @app.route('/toggle_payment_status/<int:plan_id>', methods=['POST'])
 @login_required
 def toggle_payment_status(plan_id):
@@ -768,7 +768,7 @@ def toggle_payment_status(plan_id):
     conn.close()
     return redirect(url_for('index', tab='finance'))
 
-# РУЧНЕ ВВЕДЕННЯ (ЗАВЖДИ НОВИЙ РЯДОК)
+# РУЧНЕ ВВЕДЕННЯ (ОКРЕМИЙ РЯДОК)
 @app.route('/add_direct_payment', methods=['POST'])
 @login_required
 def add_direct_payment():
@@ -828,7 +828,6 @@ def add_direct_payment():
 
     return redirect(url_for('index', tab='finance', finance_month=month_name))
 
-# ШВИДКА ФІКСАЦІЯ З КАРТКИ КЛІЄНТА (ТАКОЖ НОВИЙ РЯДОК)
 @app.route('/add_quick_sale/<int:client_id>', methods=['POST'])
 @login_required
 def add_quick_sale(client_id):
@@ -889,7 +888,7 @@ def add_quick_sale(client_id):
         
     return redirect(url_for('client_detail', client_id=client_id))
 
-# РЕДАГУВАННЯ ФІНАНСОВОГО ЗАПИСУ (З ПІДТРИМКОЮ ЧАСТКОВОЇ ОПЛАТИ)
+# РЕДАГУВАННЯ ФІНАНСОВОГО ЗАПИСУ (ПІДТРИМКА ЧАСТКОВОЇ ОПЛАТИ)
 @app.route('/edit_finance_plan/<int:plan_id>', methods=['POST'])
 @login_required
 def edit_finance_plan(plan_id):
