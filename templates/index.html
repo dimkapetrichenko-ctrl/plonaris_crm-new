@@ -72,6 +72,11 @@
                 <button onclick="switchWindow('demand-win')" id="btn-demand-win" class="btn btn-sm btn-outline-secondary fw-semibold px-3">
                     <i class="bi bi-box-seam me-1"></i> Упущений попит
                 </button>
+
+                <!-- ВКЛАДКА ІНТЕРАКТИВНОГО БЛОКНОТА -->
+                <button onclick="switchWindow('notes-win')" id="btn-notes-win" class="btn btn-sm btn-outline-secondary fw-semibold px-3">
+                    <i class="bi bi-journal-text text-success me-1"></i> Блокнот ✍️
+                </button>
             </div>
         </div>
     </div>
@@ -307,6 +312,49 @@
                             {% endif %}
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ВІКНО: ІНТЕРАКТИВНИЙ БЛОКНОТ -->
+<div id="window-notes-win" class="crm-window" style="display: none;">
+    <div class="row justify-content-center">
+        <div class="col-lg-10 col-xl-9">
+            <div class="d-flex justify-content-between align-items-center mb-3 bg-white p-2.5 rounded-3 border shadow-xs">
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-brand fw-bold px-3 shadow-xs" onclick="createNewNotePage()">
+                        <i class="bi bi-plus-circle me-1"></i> Новий аркуш
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger px-2.5" onclick="deleteCurrentNotePage()" title="Видалити поточний аркуш">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    <span id="note-save-indicator" class="badge bg-light text-muted border px-2 py-1 ms-2" style="font-size: 0.75rem;">
+                        💾 Всі зміни збережено
+                    </span>
+                </div>
+                
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-light border px-2.5 fw-bold" onclick="prevNotePage()">◀ Попередня</button>
+                    <span class="badge bg-success-subtle text-success border border-success px-3 py-1.5 font-monospace fw-bold" id="note-page-indicator" style="font-size: 0.85rem;">
+                        Сторінка 1 з 1
+                    </span>
+                    <button type="button" class="btn btn-sm btn-light border px-2.5 fw-bold" onclick="nextNotePage()">Наступна ▶</button>
+                </div>
+            </div>
+
+            <div class="notebook-container shadow-lg">
+                <div class="notebook-spiral">
+                    <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                </div>
+
+                <div class="notebook-paper">
+                    <div class="notebook-margin-line"></div>
+                    
+                    <input type="text" id="notebook-title" class="notebook-handwriting notebook-title-input" placeholder="Заголовок нотатки..." oninput="autoSaveNote()">
+                    
+                    <textarea id="notebook-content" class="notebook-handwriting notebook-content-input" placeholder="Пишіть тут свої думки, список справ, розрахунки або важливі нотатки..." oninput="autoSaveNote()"></textarea>
                 </div>
             </div>
         </div>
@@ -819,6 +867,83 @@
         font-weight: bold; 
     }
     .calendar-today-highlight { outline: 2px solid #2D7F35 !important; outline-offset: -2px; }
+
+    /* СТИЛІ РЕАЛІСТИЧНОГО БЛОКНОТА */
+    .notebook-container {
+        background: #fdfbf7;
+        border-radius: 8px 16px 16px 8px;
+        border: 1px solid #d9ceb2;
+        border-left: 12px solid #2D7F35;
+        position: relative;
+        min-height: 580px;
+        padding-left: 28px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 2px 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .notebook-spiral {
+        position: absolute;
+        left: 4px;
+        top: 20px;
+        bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        z-index: 10;
+    }
+    .notebook-spiral span {
+        width: 20px;
+        height: 8px;
+        background: linear-gradient(to right, #475569, #cbd5e1, #334155);
+        border-radius: 4px;
+        box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    }
+
+    .notebook-paper {
+        position: relative;
+        padding: 30px 35px 30px 45px;
+        min-height: 580px;
+        background: repeating-linear-gradient(
+            transparent,
+            transparent 35px,
+            #e2d9c2 35px,
+            #e2d9c2 36px
+        );
+    }
+
+    .notebook-margin-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 32px;
+        width: 2px;
+        background-color: #f87171;
+        opacity: 0.6;
+    }
+
+    .notebook-handwriting {
+        font-family: 'Caveat', cursive, sans-serif;
+        color: #1e293b;
+        background: transparent;
+        border: none;
+        outline: none;
+        width: 100%;
+        line-height: 36px;
+    }
+
+    .notebook-title-input {
+        font-size: 2.1rem;
+        font-weight: 700;
+        height: 36px;
+        color: #1E5C25;
+        margin-bottom: 36px;
+    }
+
+    .notebook-content-input {
+        font-size: 1.6rem;
+        font-weight: 600;
+        height: 432px;
+        resize: none;
+    }
 </style>
 
 <script>
@@ -830,6 +955,105 @@ let currentMonth = new Date().getMonth();
 let tasksYear = new Date().getFullYear();
 let tasksMonth = new Date().getMonth();
 const monthNames = ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"];
+
+// ЛОГІКА ІНТЕРАКТИВНОГО БЛОКНОТА
+let notebookPages = [];
+let currentNoteIndex = 0;
+let saveTimeout = null;
+
+function loadNotebookPages() {
+    fetch('/notes')
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.notes.length > 0) {
+                notebookPages = data.notes;
+            } else {
+                notebookPages = [{ id: null, title: 'Мої перші нотатки ✍️', content: 'Це новий блокнот Plonaris.\nТут зручно записувати ідеї, контакти чи завдання.' }];
+            }
+            currentNoteIndex = 0;
+            renderCurrentNotePage();
+        });
+}
+
+function renderCurrentNotePage() {
+    if (!notebookPages[currentNoteIndex]) return;
+    const page = notebookPages[currentNoteIndex];
+    document.getElementById('notebook-title').value = page.title || '';
+    document.getElementById('notebook-content').value = page.content || '';
+    document.getElementById('note-page-indicator').innerText = `Сторінка ${currentNoteIndex + 1} з ${notebookPages.length}`;
+}
+
+function createNewNotePage() {
+    notebookPages.push({ id: null, title: '', content: '' });
+    currentNoteIndex = notebookPages.length - 1;
+    renderCurrentNotePage();
+    document.getElementById('notebook-title').focus();
+}
+
+function prevNotePage() {
+    if (currentNoteIndex > 0) {
+        currentNoteIndex--;
+        renderCurrentNotePage();
+    }
+}
+
+function nextNotePage() {
+    if (currentNoteIndex < notebookPages.length - 1) {
+        currentNoteIndex++;
+        renderCurrentNotePage();
+    }
+}
+
+function autoSaveNote() {
+    const title = document.getElementById('notebook-title').value;
+    const content = document.getElementById('notebook-content').value;
+    const indicator = document.getElementById('note-save-indicator');
+    
+    notebookPages[currentNoteIndex].title = title;
+    notebookPages[currentNoteIndex].content = content;
+
+    indicator.innerHTML = '⏳ Збереження...';
+    indicator.className = 'badge bg-warning-subtle text-dark border border-warning px-2 py-1 ms-2';
+
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+        fetch('/save_note', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: notebookPages[currentNoteIndex].id,
+                title: title,
+                content: content
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                notebookPages[currentNoteIndex].id = data.id;
+                indicator.innerHTML = '💾 Всі зміни збережено';
+                indicator.className = 'badge bg-light text-muted border px-2 py-1 ms-2';
+            }
+        });
+    }, 600);
+}
+
+function deleteCurrentNotePage() {
+    const page = notebookPages[currentNoteIndex];
+    if (!confirm('Видалити цей аркуш із блокнота?')) return;
+
+    if (page.id) {
+        fetch(`/delete_note/${page.id}`, { method: 'POST' });
+    }
+
+    notebookPages.splice(currentNoteIndex, 1);
+    if (notebookPages.length === 0) {
+        notebookPages = [{ id: null, title: '', content: '' }];
+    }
+    if (currentNoteIndex >= notebookPages.length) {
+        currentNoteIndex = notebookPages.length - 1;
+    }
+    renderCurrentNotePage();
+}
 
 function updateTasksDesktopBadges() {
     const today = new Date().toISOString().split('T')[0];
@@ -927,7 +1151,7 @@ function resetTableFilters() {
 function switchWindow(targetWinId) {
     document.querySelectorAll('.crm-window').forEach(win => win.style.display = 'none');
     document.getElementById('window-' + targetWinId).style.display = 'block';
-    ['today-win', 'calendar-win', 'all-win', 'finance-win', 'tasks-win', 'demand-win'].forEach(id => {
+    ['today-win', 'calendar-win', 'all-win', 'finance-win', 'tasks-win', 'demand-win', 'notes-win'].forEach(id => {
         let btn = document.getElementById('btn-' + id);
         if (btn) btn.className = "btn btn-sm btn-outline-secondary fw-semibold px-3";
     });
@@ -939,6 +1163,10 @@ function switchWindow(targetWinId) {
         else if(targetWinId === 'finance-win') activeBtn.className = "btn btn-sm btn-success fw-bold px-3 shadow-sm";
         else if(targetWinId === 'tasks-win') activeBtn.className = "btn btn-sm btn-dark text-white fw-bold px-3 shadow-sm";
         else if(targetWinId === 'demand-win') activeBtn.className = "btn btn-sm btn-success fw-bold px-3 shadow-sm";
+        else if(targetWinId === 'notes-win') {
+            activeBtn.className = "btn btn-sm btn-success fw-bold px-3 shadow-sm";
+            loadNotebookPages();
+        }
     }
 }
 
@@ -1194,8 +1422,8 @@ window.onload = function() {
     if(urlParams.get('tab') === 'tasks') { switchWindow('tasks-win'); } 
     else if(urlParams.get('tab') === 'finance' || urlParams.get('finance_month') !== null) { switchWindow('finance-win'); } 
     else if(urlParams.get('tab') === 'demand') { switchWindow('demand-win'); } 
+    else if(urlParams.get('tab') === 'notes') { switchWindow('notes-win'); }
     else { switchWindow('all-win'); }
 };
 </script>
 {% endblock %}
-
