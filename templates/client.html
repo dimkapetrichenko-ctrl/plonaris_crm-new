@@ -94,7 +94,13 @@
                 <form action="{{ url_for('edit_client', client_id=client.id) }}" method="POST">
                     <div class="mb-2">
                         <label class="form-label mb-1"><b>Назва компанії *</b></label>
-                        <input type="text" name="name" class="form-control form-control-sm" value="{{ client.name }}" required>
+                        <input type="text" name="name" class="form-control form-control-sm fw-bold" value="{{ client.name }}" required>
+                    </div>
+
+                    <!-- ПОЛЕ NIP (TAX NUMBER) -->
+                    <div class="mb-2">
+                        <label class="form-label mb-1"><b>NIP / TAX Number</b></label>
+                        <input type="text" name="nip" class="form-control form-control-sm font-monospace text-success fw-bold" value="{{ client.nip or '' }}" placeholder="напр. PL1234567890">
                     </div>
 
                     <div class="mb-2">
@@ -130,14 +136,6 @@
                             <option value="offer_sent" {% if client.deal_stage == 'offer_sent' %}selected{% endif %}>📄 2. Рахунок / КП</option>
                             <option value="paid_shipped" {% if client.deal_stage == 'paid_shipped' %}selected{% endif %}>📦 3. Оплачено / Відвантажено</option>
                             <option value="regular" {% if client.deal_stage == 'regular' %}selected{% endif %}>🤝 4. Постійний партнер</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-2">
-                        <label class="form-label mb-1"><b>Реєстрація на PLONARIS</b></label>
-                        <select name="mayer_reg" class="form-select form-select-sm">
-                            <option value="Так" {% if client.mayer_reg == 'Так' %}selected{% endif %}>Так</option>
-                            <option value="Ні" {% if client.mayer_reg == 'Ні' or not client.mayer_reg %}selected{% endif %}>Ні</option>
                         </select>
                     </div>
 
