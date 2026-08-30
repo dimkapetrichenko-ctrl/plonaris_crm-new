@@ -216,7 +216,6 @@ def init_db():
         )
     ''')
     
-    # Таблиця інтерактивного блокнота
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS notebook_pages (
             id SERIAL PRIMARY KEY,
@@ -480,7 +479,7 @@ def index():
         top_demand=top_demand
     )
 
-# МАРШРУТИ БЛОКНОТА (З ДАТОЮ)
+# МАРШРУТИ БЛОКНОТА
 @app.route('/notes')
 @login_required
 def get_notes():
@@ -529,233 +528,56 @@ def delete_note(note_id):
     conn.close()
     return jsonify({'success': True})
 
-# МАРШРУТ ЗЧИТУВАННЯ PDF-РАХУНКІВ (FAKTUROWNIA ТА ІНШІ)
-@app.route('/upload_invoice_pdf', methods=['POST'])
+# РУЧНЕ ВВЕДЕННЯ ОПЛАТИ (ФАКТИЧНОГО НАДХОДЖЕННЯ)
+@app.route('/add_direct_payment', methods=['POST'])
 @login_required
-def upload_invoice_pdf():
-    file = request.files.get('invoice_file')
-    forced_client_id = request.form.get('client_id')
+def add_direct_payment():
+    client_id = request.form.get('client_id')
+    actual_amount = request.form.get('actual_amount', 0)
+    payment_date = request.form.get('payment_date', '').strip()
+    month_name = request.form.get('month_name', '').strip()
+    note = request.form.get('note', '').strip()
     
-    if not file or file.filename == '':
-        return jsonify({'success': False, 'message': 'Файл не обрано!'})
+    ukr_months = ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"]
+    if not payment_date:
+        payment_date = datetime.now().strftime("%Y-%m-%d")
         
-    try:
-        reader = PdfReader(file)
-        full_text = ""
-        for page in reader.pages:
-            full_text += page.extract_text() or ""
-            
-        inv_data = None
-        if GEMINI_API_KEY:
-            prompt = f"""
-            Проаналізуй текст польського рахунку / фактури та витягни дані у форматі JSON:
-            --- ТЕКСТ РАХУНКУ ---
-            {full_text}
-            --- КІНЕЦЬ ТЕКСТУ ---
-            
-            Поверни ВИКЛЮЧНО валідний JSON строго за зразком:
-            {{
-                "invoice_number": "P5/08/2026",
-                "buyer_name": "Lech Siewiec",
-                "buyer_nip": "85413770273",
-                "buyer_address": "Kunowo 53, 73-110 Stargard",
-                "date": "2026-08-25",
-                "total_amount": 1447.47,
-                "currency": "PLN",
-                "items": ["453528-M Pierścień (2 szt)", "464730-M Śruba dwustronna (6 szt)"]
-            }}
-            """
-            try:
-                host = "generativelanguage.googleapis.com"
-                model_path = "v1beta/models/gemini-2.5-flash:generateContent"
-                url = f"https://{host}/{model_path}?key={str(GEMINI_API_KEY).strip()}"
-                
-                res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.0}}, timeout=15)
-                raw_res = res.json()['candidates'][0]['content']['parts'][0]['text']
-                raw_res = raw_res.replace('```json', '').replace('```', '').strip()
-                inv_data = json.loads(raw_res)
-            except Exception as e:
-                print(f"Gemini parse fallback: {e}")
-
-        if not inv_data:
-            num_match = re.search(r'numer\s+([A-Za-z0-9\/\-]+)', full_text, re.IGNORECASE)
-            nip_match = re.search(r'NIP\s*([0-9]{10,11})', full_text)
-            date_match = re.search(r'(\d{4}-\d{2}-\d{2})', full_text)
-            total_match = re.search(r'(?:Do zapłaty|Razem|brutto)[\s\:\n]+([\d\s]+[\,\.]\d{2})\s*(PLN|EUR)', full_text, re.IGNORECASE)
-            
-            tot_amt = 0.0
-            cur = "PLN"
-            if total_match:
-                tot_amt = float(total_match.group(1).replace(' ', '').replace(',', '.'))
-                cur = total_match.group(2).upper()
-                
-            inv_data = {
-                "invoice_number": num_match.group(1) if num_match else "FV-Auto",
-                "buyer_name": "Контрагент з рахунку",
-                "buyer_nip": nip_match.group(1) if nip_match else "",
-                "buyer_address": "",
-                "date": date_match.group(1) if date_match else datetime.now().strftime("%Y-%m-%d"),
-                "total_amount": tot_amt,
-                "currency": cur,
-                "items": []
-            }
-
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=DictCursor)
-        
-        client_id = forced_client_id
-        if not client_id:
-            if inv_data.get('buyer_nip'):
-                cursor.execute("SELECT id FROM clients WHERE nip = %s", (inv_data['buyer_nip'],))
-                row = cursor.fetchone()
-                if row:
-                    client_id = row['id']
-                    
-            if not client_id and inv_data.get('buyer_name'):
-                cursor.execute("SELECT id FROM clients WHERE LOWER(name) = LOWER(%s)", (inv_data['buyer_name'],))
-                row = cursor.fetchone()
-                if row:
-                    client_id = row['id']
-
-            if not client_id:
-                cursor.execute("""
-                    INSERT INTO clients (name, nip, address, country, buyer_type, interest_level, deal_stage, is_active)
-                    VALUES (%s, %s, %s, 'Польща', 'роздрібний покупець', 'зацікавленість', 'paid_shipped', TRUE)
-                    RETURNING id
-                """, (inv_data.get('buyer_name', 'Клієнт з фактури'), inv_data.get('buyer_nip', ''), inv_data.get('buyer_address', '')))
-                client_id = cursor.fetchone()['id']
-            else:
-                if inv_data.get('buyer_nip'):
-                    cursor.execute("UPDATE clients SET nip = %s WHERE id = %s AND (nip IS NULL OR nip = '')", (inv_data['buyer_nip'], client_id))
-
-        amt = float(inv_data.get('total_amount', 0))
-        amt_eur = round(amt / 4.30, 2) if inv_data.get('currency') == 'PLN' else amt
-
-        ukr_months = ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"]
-        pay_date = inv_data.get('date', datetime.now().strftime("%Y-%m-%d"))
+    if not month_name:
         try:
-            month_idx = datetime.strptime(pay_date, "%Y-%m-%d").month - 1
-            month_name = ukr_months[month_idx]
+            m_idx = datetime.strptime(payment_date, "%Y-%m-%d").month - 1
+            month_name = ukr_months[m_idx]
         except Exception:
             month_name = "Серпень"
+
+    try:
+        amt_val = float(actual_amount)
+    except Exception:
+        amt_val = 0.0
+
+    if client_id and amt_val > 0:
+        conn = get_db_connection()
+        cursor = conn.cursor()
         
-        cursor.execute("SELECT id, actual_amount FROM sales_plans WHERE client_id = %s ORDER BY id DESC LIMIT 1", (client_id,))
-        existing_plan = cursor.fetchone()
-        if existing_plan:
-            new_fact = float(existing_plan['actual_amount'] or 0) + amt_eur
-            cursor.execute("UPDATE sales_plans SET actual_amount = %s, payment_date = %s WHERE id = %s", (new_fact, pay_date, existing_plan['id']))
-        else:
-            cursor.execute("INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date) VALUES (%s, 0.0, %s, %s, %s)", (client_id, month_name, amt_eur, pay_date))
-
-        try:
-            next_date = (datetime.strptime(pay_date, "%Y-%m-%d") + timedelta(days=7)).strftime("%Y-%m-%d")
-        except Exception:
-            next_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
-
+        cursor.execute("""
+            INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date)
+            VALUES (%s, 0.0, %s, %s, %s)
+        """, (client_id, month_name, amt_val, payment_date))
+        
+        next_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
         cursor.execute("UPDATE clients SET deal_stage = 'paid_shipped', next_event_date = %s, next_event_type = 'call' WHERE id = %s", (next_date, client_id))
         
-        items_str = ", ".join(inv_data.get('items', []))
-        items_log = f"\n📦 Товари: {items_str}" if items_str else ""
+        note_str = f" Коментар: {note}" if note else ""
         current_dt = datetime.now().strftime("%Y-%m-%d %H:%M")
-        log_text = f"🧾 [ІМПОРТ РАХУНКУ] Рахунок №{inv_data.get('invoice_number')}. Оплачено: {amt:,.2f} {inv_data.get('currency')} (екв. ~{amt_eur:,.2f} €).{items_log}\nПризначено дзвінок-контроль на {next_date}."
-        
+        log_text = f"💰 [ОПЛАТА ВРУЧНУ] Отримано: {amt_val:,.2f} PLN на дату {payment_date}.{note_str}"
         cursor.execute("INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, 'Продажі')", (client_id, current_dt, log_text))
-
+        
         conn.commit()
         cursor.close()
         conn.close()
 
-        return jsonify({
-            'success': True, 
-            'message': f"Рахунок {inv_data.get('invoice_number')} успішно опрацьовано! Додано {amt_eur:,.2f} € у фактично оплачено.",
-            'client_id': client_id
-        })
+    return redirect(url_for('index', tab='finance', finance_month=month_name))
 
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Помилка обробки PDF: {str(e)}'})
-
-# МАРШРУТ АВТОМАТИЧНОГО ІМПОРТУ ПАРТНЕРІВ
-@app.route('/run-partners-import')
-@login_required
-def run_partners_import():
-    partners_data = [
-        {"name": "BDO", "country": "Польща", "address": "", "contact_person": "", "position": "", "phone": "", "phone_2": "", "email": "", "website": "https://bdo.mos.gov.pl/", "notes": "Реєстрація BDO / Вивіз відходів"},
-        {"name": "MAYER PRO s.r.o.", "country": "Словаччина", "address": "Jegenesska 9", "contact_person": "Dmytro Petrychenko", "position": "Regional manager", "phone": "501166523", "phone_2": "+421 907 933 441", "email": "sales@mayer-pro.com", "website": "https://mayer-pro.com/pl", "notes": "Постачальник aftermarket запчастин до сільгосптехніки"},
-        {"name": "ZETTA GROUP Sp. z o.o.", "country": "Польща", "address": "ul. Szlak 77/222 31-153 Kraków", "contact_person": "Wiktor Sasulski", "position": "", "phone": "+48 730 898 378", "phone_2": "", "email": "wiktor.sasulski@zettagroup.com.pl", "website": "https://zettagroup.com.pl/pro-kompaniyu/", "notes": "Firma produkuje części do maszyn rolniczych z metali i polimerów stałych. Claas, Geringhoff, John Deere, Case, New Holland, Fantini, Lemken, Oros, Gaspardo i inne."},
-        {"name": "IQ Parts  Beyne GMBH", "country": "Австрія", "address": "Bundesstraße 8A-8661 St. Barbara im Mürztal", "contact_person": "Sven Vierstraete", "position": "", "phone": "+43385860556100", "phone_2": "", "email": "svenvierstraete@iqparts.com", "website": "http://www.iqparts.com", "notes": "Виробник робочих органів"},
-        {"name": "AMA Star", "country": "Туреччина", "address": "Güzelyurt, 5787 Sk. No:9, 45030 Yunusemre/Manisa", "contact_person": "Ersin Vardar", "position": "", "phone": "+90 539 684 86 46", "phone_2": "", "email": "ersinvardar@startrm.com", "website": "https://amastar.com.tr/en", "notes": "Виробляють диски до дискових борін різних марок."},
-        {"name": "Granit Parts", "country": "Польща", "address": "", "contact_person": "Piotr Kowarski", "position": "manager", "phone": "+48 661 300 670", "phone_2": "", "email": "piotr.kowalski@granit-parts.com", "website": "www.granit-parts.pl", "notes": "Логін: 5780340  Пароль: J8fnIF7u"},
-        {"name": "OZDOWSKI", "country": "Польща", "address": "ul.Zebrzydowicka 28, 44-217 Rybnik", "contact_person": "Aleksandra Ozdowska", "position": "", "phone": "+48 535 515 139", "phone_2": "", "email": "aleksandra@fhuozdowski.pl", "website": "https://www.zamiennikirolnicze.pl/", "notes": "Виробляють ланцюги для передачі крутного моменту."},
-        {"name": "Agri Carb (Ceratizit Group)", "country": "Польща", "address": "", "contact_person": "Aron grelich", "position": "technical sales expert", "phone": "+48 667 756 067", "phone_2": "", "email": "aron.grelich@ceratizit.com", "website": "https://agricarb.com/int/en.html", "notes": "Виробляють робочі органи до різних типів грунтообробного обладнання. Спеціалізуються на долотах з карбід-вольфрамовою наплавкою."},
-        {"name": "Agrocolla Navarro", "country": "Іспанія", "address": "", "contact_person": "Santiago Sanchiz Telemin", "position": "", "phone": "+34 628 747 376", "phone_2": "", "email": "export@agricolanavarro.com", "website": "https://agricolanavarro.com/productos/", "notes": "Виробник робочих органів (фрези, мульчувачі, вертикудери, активні культиватори)"},
-        {"name": "BUCO", "country": "Аргентина", "address": "", "contact_person": "Mariano Buconic", "position": "", "phone": "+54 9 11 6454 8147", "phone_2": "", "email": "mariano.buconic@buco.com.ar", "website": "www.buco.com.ar", "notes": "Виробник коліс (прикочуючі колеса, колеса глибини тощо)"},
-        {"name": "Dosemenler", "country": "Туреччина", "address": "", "contact_person": "Serdar Dósemen", "position": "", "phone": "+90 266 626 10 50", "phone_2": "", "email": "serdar@dosemen.com", "website": "https://www.dosemen.com/", "notes": "Розробляють та виготовляють робочі органи"},
-        {"name": "OZAR", "country": "Туреччина", "address": "", "contact_person": "Sidharth Trikha", "position": "", "phone": "+91 941 691 68 20", "phone_2": "", "email": "globalsales@aloktools.com", "website": "https://www.aloktools.com/", "notes": "Виробляють ручний інструмент та інструмент для виробництв."},
-        {"name": "STANMAR", "country": "Польща", "address": "", "contact_person": "Grzegorz Szulc", "position": "", "phone": "+48 883 633 073", "phone_2": "", "email": "grzegorz@stanmar.net.pl", "website": "https://stanmar.net.pl/oferta.html", "notes": "Виробник деталей на замовлення. Токарні та фрезерні роботи."},
-        {"name": "AGROSALIX", "country": "Польща", "address": "", "contact_person": "Tomasz Wierzba", "position": "", "phone": "+48 508 375 808", "phone_2": "", "email": "agrosalixwierzba@gmail.com", "website": "", "notes": "Запчастини до John Deere (двигун)"},
-        {"name": "AGRI-INDUS SAS", "country": "Франція", "address": "", "contact_person": "", "position": "", "phone": "+33344419533", "phone_2": "", "email": "contact@agri-indus.fr", "website": "https://www.agri-indus.fr/", "notes": "Виробник робочих органів з пластинами"},
-        {"name": "ROLMUS", "country": "Польща", "address": "ul. Akacjowa 662-300 Września", "contact_person": "Mieczysław Szymkowiak", "position": "", "phone": "+48 61 4366 754", "phone_2": "", "email": "biuro@rolmus.com.pl", "website": "https://www.rolmus.com.pl/rozsiewacze.html", "notes": "Виробник запчастин до вітчизняної польської техніки"},
-        {"name": "HUO SHIN ENTERPRISE CO.", "country": "Китай", "address": "", "contact_person": "Julie Wang", "position": "", "phone": "+88647713096", "phone_2": "", "email": "huoshin@ms16.hinet.net", "website": "http://www.wlk.com.tw", "notes": "Виробник сальників та прокладок"},
-        {"name": "ZYCHAR", "country": "Польща", "address": "ul. Rolna 4 23-400 Biłgoraj", "contact_person": "", "position": "", "phone": "84 307 01 01", "phone_2": "", "email": "biuro@zychar.pl", "website": "https://www.zychar.pl/", "notes": "Виготовлення бортів до причепів"}
-    ]
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    imported = 0
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-
-    for p in partners_data:
-        cursor.execute("SELECT id FROM clients WHERE LOWER(name) = LOWER(%s)", (p['name'],))
-        row = cursor.fetchone()
-        if not row:
-            cursor.execute("""
-                INSERT INTO clients (
-                    name, country, address, contact_person, position, phone, phone_2, 
-                    email, website, buyer_type, interest_level, is_active, deal_stage
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'постачальник', 'середня зацікавленість', TRUE, 'none')
-                RETURNING id
-            """, (
-                p['name'], p['country'], p['address'], p['contact_person'], p['position'],
-                p['phone'], p['phone_2'], p['email'], p['website']
-            ))
-            client_id = cursor.fetchone()[0]
-            
-            if p['notes']:
-                cursor.execute("""
-                    INSERT INTO negotiations (client_id, date, result, author)
-                    VALUES (%s, %s, %s, %s)
-                """, (client_id, now_str, f"📋 [Нотатки постачальника]: {p['notes']}", 'CEO'))
-            imported += 1
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return f"<div style='font-family: sans-serif; padding: 30px; text-align: center;'><h2>✅ Успішно імпортовано {imported} постачальників!</h2><br><a href='/' style='background: #2D7F35; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;'>Повернутися в CRM</a></div>"
-
-@app.route('/toggle_client_status/<int:client_id>', methods=['POST'])
-@login_required
-def toggle_client_status(client_id):
-    action = request.form.get('action')
-    reason = request.form.get('reason', '').strip()
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
-    
-    if action == 'deactivate':
-        cursor.execute("UPDATE clients SET is_active = FALSE, deactivation_reason = %s WHERE id = %s", (reason, client_id))
-        log_text = f"⛔ [ДЕАКТИВАЦІЯ] Переведено в архів. Причина: {reason or 'Не вказано'}"
-        cursor.execute("INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, %s)", (client_id, current_date, log_text, 'CEO'))
-    else:
-        cursor.execute("UPDATE clients SET is_active = TRUE, deactivation_reason = NULL WHERE id = %s", (client_id,))
-        log_text = "🟢 [АКТИВАЦІЯ] Відновлено з архіву в активну базу."
-        cursor.execute("INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, %s)", (client_id, current_date, log_text, 'CEO'))
-        
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return redirect(url_for('client_detail', client_id=client_id))
-
+# ШВИДКА ФІКСАЦІЯ З КАРТКИ КЛІЄНТА В PLN
 @app.route('/add_quick_sale/<int:client_id>', methods=['POST'])
 @login_required
 def add_quick_sale(client_id):
@@ -770,8 +592,11 @@ def add_quick_sale(client_id):
         
     ukr_months = ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"]
     if not month_name:
-        month_idx = datetime.now().month - 1
-        month_name = ukr_months[month_idx]
+        try:
+            m_idx = datetime.strptime(payment_date, "%Y-%m-%d").month - 1
+            month_name = ukr_months[m_idx]
+        except Exception:
+            month_name = "Серпень"
         
     try:
         amt_val = float(amount)
@@ -815,7 +640,7 @@ def add_quick_sale(client_id):
         
         inv_text = f" Рахунок/ТТН: {invoice_no}." if invoice_no else ""
         current_dt = datetime.now().strftime("%Y-%m-%d %H:%M")
-        log_text = f"💰 [ОПЛАТА] Надійшло {amt_val:,.2f} EUR.{inv_text} Автоматично призначено контроль на {next_date}."
+        log_text = f"💰 [ОПЛАТА] Надійшло {amt_val:,.2f} PLN.{inv_text} Контроль отримання на {next_date}."
         
         cursor.execute(
             "INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, %s)",
@@ -828,202 +653,239 @@ def add_quick_sale(client_id):
         
     return redirect(url_for('client_detail', client_id=client_id))
 
-@app.route('/add_lost_demand', methods=['POST'])
+# ЗЧИТУВАННЯ PDF-РАХУНКІВ У PLN
+@app.route('/upload_invoice_pdf', methods=['POST'])
 @login_required
-def add_lost_demand():
-    client_id = request.form.get('client_id')
-    article = request.form.get('article', '').strip()
-    title = request.form.get('title', '').strip()
-    quantity = request.form.get('quantity', 1)
-    status = request.form.get('status', 'lost')
-    note = request.form.get('note', '').strip()
+def upload_invoice_pdf():
+    file = request.files.get('invoice_file')
+    forced_client_id = request.form.get('client_id')
+    
+    if not file or file.filename == '':
+        return jsonify({'success': False, 'message': 'Файл не обрано!'})
+        
+    try:
+        reader = PdfReader(file)
+        full_text = ""
+        for page in reader.pages:
+            full_text += page.extract_text() or ""
+            
+        inv_data = None
+        if GEMINI_API_KEY:
+            prompt = f"""
+            Проаналізуй текст польського рахунку / фактури та витягни дані у форматі JSON:
+            --- ТЕКСТ РАХУНКУ ---
+            {full_text}
+            --- КІНЕЦЬ ТЕКСТУ ---
+            
+            Поверни ВИКЛЮЧНО валідний JSON:
+            {{
+                "invoice_number": "P5/08/2026",
+                "buyer_name": "Lech Siewiec",
+                "buyer_nip": "85413770273",
+                "buyer_address": "Kunowo 53, 73-110 Stargard",
+                "date": "2026-08-25",
+                "total_amount": 1447.47,
+                "items": ["453528-M Pierścień (2 szt)", "464730-M Śruba dwustronna (6 szt)"]
+            }}
+            """
+            try:
+                host = "generativelanguage.googleapis.com"
+                model_path = "v1beta/models/gemini-2.5-flash:generateContent"
+                url = f"https://{host}/{model_path}?key={str(GEMINI_API_KEY).strip()}"
+                
+                res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.0}}, timeout=15)
+                raw_res = res.json()['candidates'][0]['content']['parts'][0]['text']
+                raw_res = raw_res.replace('```json', '').replace('```', '').strip()
+                inv_data = json.loads(raw_res)
+            except Exception as e:
+                print(f"Gemini fallback: {e}")
+
+        if not inv_data:
+            num_match = re.search(r'numer\s+([A-Za-z0-9\/\-]+)', full_text, re.IGNORECASE)
+            nip_match = re.search(r'NIP\s*([0-9]{10,11})', full_text)
+            date_match = re.search(r'(\d{4}-\d{2}-\d{2})', full_text)
+            total_match = re.search(r'(?:Do zapłaty|Razem|brutto)[\s\:\n]+([\d\s]+[\,\.]\d{2})\s*(?:PLN|zł)', full_text, re.IGNORECASE)
+            
+            tot_amt = 0.0
+            if total_match:
+                tot_amt = float(total_match.group(1).replace(' ', '').replace(',', '.'))
+                
+            inv_data = {
+                "invoice_number": num_match.group(1) if num_match else "FV-Auto",
+                "buyer_name": "Контрагент з рахунку",
+                "buyer_nip": nip_match.group(1) if nip_match else "",
+                "buyer_address": "",
+                "date": date_match.group(1) if date_match else datetime.now().strftime("%Y-%m-%d"),
+                "total_amount": tot_amt,
+                "items": []
+            }
+
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=DictCursor)
+        
+        client_id = forced_client_id
+        if not client_id:
+            if inv_data.get('buyer_nip'):
+                cursor.execute("SELECT id FROM clients WHERE nip = %s", (inv_data['buyer_nip'],))
+                row = cursor.fetchone()
+                if row:
+                    client_id = row['id']
+                    
+            if not client_id and inv_data.get('buyer_name'):
+                cursor.execute("SELECT id FROM clients WHERE LOWER(name) = LOWER(%s)", (inv_data['buyer_name'],))
+                row = cursor.fetchone()
+                if row:
+                    client_id = row['id']
+
+            if not client_id:
+                cursor.execute("""
+                    INSERT INTO clients (name, nip, address, country, buyer_type, interest_level, deal_stage, is_active)
+                    VALUES (%s, %s, %s, 'Польща', 'роздрібний покупець', 'зацікавленість', 'paid_shipped', TRUE)
+                    RETURNING id
+                """, (inv_data.get('buyer_name', 'Клієнт з фактури'), inv_data.get('buyer_nip', ''), inv_data.get('buyer_address', '')))
+                client_id = cursor.fetchone()['id']
+            else:
+                if inv_data.get('buyer_nip'):
+                    cursor.execute("UPDATE clients SET nip = %s WHERE id = %s AND (nip IS NULL OR nip = '')", (inv_data['buyer_nip'], client_id))
+
+        amt_pln = float(inv_data.get('total_amount', 0))
+
+        ukr_months = ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"]
+        pay_date = inv_data.get('date', datetime.now().strftime("%Y-%m-%d"))
+        try:
+            month_idx = datetime.strptime(pay_date, "%Y-%m-%d").month - 1
+            month_name = ukr_months[month_idx]
+        except Exception:
+            month_name = "Серпень"
+        
+        cursor.execute("SELECT id, actual_amount FROM sales_plans WHERE client_id = %s ORDER BY id DESC LIMIT 1", (client_id,))
+        existing_plan = cursor.fetchone()
+        if existing_plan:
+            new_fact = float(existing_plan['actual_amount'] or 0) + amt_pln
+            cursor.execute("UPDATE sales_plans SET actual_amount = %s, payment_date = %s WHERE id = %s", (new_fact, pay_date, existing_plan['id']))
+        else:
+            cursor.execute("INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date) VALUES (%s, 0.0, %s, %s, %s)", (client_id, month_name, amt_pln, pay_date))
+
+        try:
+            next_date = (datetime.strptime(pay_date, "%Y-%m-%d") + timedelta(days=7)).strftime("%Y-%m-%d")
+        except Exception:
+            next_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+
+        cursor.execute("UPDATE clients SET deal_stage = 'paid_shipped', next_event_date = %s, next_event_type = 'call' WHERE id = %s", (next_date, client_id))
+        
+        items_str = ", ".join(inv_data.get('items', []))
+        items_log = f"\n📦 Товари: {items_str}" if items_str else ""
+        current_dt = datetime.now().strftime("%Y-%m-%d %H:%M")
+        log_text = f"🧾 [ІМПОРТ РАХУНКУ] Рахунок №{inv_data.get('invoice_number')}. Оплачено: {amt_pln:,.2f} PLN.{items_log}\nПризначено дзвінок-контроль на {next_date}."
+        
+        cursor.execute("INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, 'Продажі')", (client_id, current_dt, log_text))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True, 
+            'message': f"Рахунок {inv_data.get('invoice_number')} успішно зчитано! Додано {amt_pln:,.2f} PLN у фактично оплачено.",
+            'client_id': client_id
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Помилка обробки PDF: {str(e)}'})
+
+# РЕДАГУВАННЯ ФІНАНСОВОГО ЗАПИСУ
+@app.route('/edit_finance_plan/<int:plan_id>', methods=['POST'])
+@login_required
+def edit_finance_plan(plan_id):
+    planned_amount = request.form.get('planned_amount', 0)
+    month_name = request.form.get('month_name', '')
+    actual_amount = request.form.get('actual_amount', 0)
+    payment_date = request.form.get('payment_date', '')
     
     try:
-        qty_val = int(quantity)
+        p_amt = float(planned_amount) if planned_amount else 0.0
     except Exception:
-        qty_val = 1
+        p_amt = 0.0
 
-    if article:
+    try:
+        a_amt = float(actual_amount) if actual_amount else 0.0
+    except Exception:
+        a_amt = 0.0
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE sales_plans 
+        SET planned_amount = %s, month_name = %s, actual_amount = %s, payment_date = %s 
+        WHERE id = %s
+    """, (p_amt, month_name, a_amt, payment_date, plan_id))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return redirect(url_for('index', tab='finance', finance_month=month_name))
+
+# ВИДАЛЕННЯ ФІНАНСОВОГО ЗАПИСУ
+@app.route('/delete_finance_plan/<int:plan_id>', methods=['POST'])
+@login_required
+def delete_finance_plan(plan_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM sales_plans WHERE id = %s", (plan_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return redirect(url_for('index', tab='finance'))
+
+# СТВОРЕННЯ ПЛАНУ НАДХОДЖЕННЯ
+@app.route('/add_finance_plan', methods=['POST'])
+@login_required
+def add_finance_plan():
+    client_id = request.form.get('client_id')
+    planned_amount = request.form.get('planned_amount', 0)
+    month_name = request.form.get('month_name', '')
+    actual_amount = request.form.get('actual_amount', 0)
+    payment_date = request.form.get('payment_date', '')
+    
+    try:
+        p_amt = float(planned_amount) if planned_amount else 0.0
+    except Exception:
+        p_amt = 0.0
+
+    try:
+        a_amt = float(actual_amount) if actual_amount else 0.0
+    except Exception:
+        a_amt = 0.0
+
+    if client_id:
         conn = get_db_connection()
         cursor = conn.cursor()
-        created_at = datetime.now().strftime("%Y-%m-%d %H:%M")
         
         cursor.execute(
-            """INSERT INTO lost_demand (client_id, article, title, quantity, status, note, created_at)
-               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-            (client_id if client_id else None, article, title, qty_val, status, note, created_at)
+            "SELECT id, planned_amount, actual_amount FROM sales_plans WHERE client_id = %s ORDER BY id DESC LIMIT 1",
+            (client_id,)
         )
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-    if client_id:
-        return redirect(url_for('client_detail', client_id=client_id))
-    return redirect(url_for('index', tab='demand'))        
-
-@app.route('/delete_lost_demand/<int:demand_id>', methods=['POST'])
-@login_required
-def delete_lost_demand(demand_id):
-    client_id = request.form.get('client_id')
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM lost_demand WHERE id = %s", (demand_id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    
-    if client_id:
-        return redirect(url_for('client_detail', client_id=client_id))
-    return redirect(url_for('index', tab='demand'))
-
-@app.route('/send_client_email', methods=['POST'])
-@login_required
-def send_client_email():
-    client_id = request.form.get('client_id')
-    to_email = request.form.get('email', '').strip()
-    subject = request.form.get('subject', '').strip()
-    body_text = request.form.get('body', '').strip()
-    
-    if to_email and body_text:
-        success = send_email_notification(to_email, subject, body_text)
-        if success:
-            current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            
-            log_text = f"Надіслано Email (Plonaris). Тема: \"{subject}\""
-            
+        existing = cursor.fetchone()
+        
+        if existing:
+            plan_id = existing[0]
+            cur_fact = float(existing[2] or 0)
+            new_fact = cur_fact + a_amt if a_amt > 0 else cur_fact
             cursor.execute(
-                "INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, %s)",
-                (client_id, current_date, log_text, 'Продажі')
+                "UPDATE sales_plans SET planned_amount = %s, month_name = %s, actual_amount = %s, payment_date = COALESCE(NULLIF(%s, ''), payment_date) WHERE id = %s",
+                (p_amt, month_name, new_fact, payment_date, plan_id)
             )
-            conn.commit()
-            cursor.close()
-            conn.close()
-    return redirect(url_for('client_detail', client_id=client_id))
-
-@app.route('/sync_emails', methods=['POST'])
-@login_required
-def sync_emails():
-    if not MAIL_USERNAME or not MAIL_PASSWORD:
-        return jsonify({'success': False, 'message': 'Налаштування IMAP відсутні!'})
-    try:
-        mail = imaplib.IMAP4_SSL('mail.adm.tools', 993)
-        mail.login(MAIL_USERNAME, MAIL_PASSWORD)
-        mail.select("INBOX")
-        
-        status, response_data = mail.search(None, 'UNSEEN')
-        email_ids = response_data[0].split()
-        
-        if not email_ids:
-            mail.close()
-            mail.logout()
-            return jsonify({'success': True, 'message': 'Вхідна скринька перевірена. Нових листів немає.'})
-
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        imported_count = 0
-
-        for e_id in email_ids:
-            _, msg_data = mail.fetch(e_id, '(RFC822)')
-            raw_email = msg_data[0][1]
-            msg = email.message_from_bytes(raw_email)
-            
-            from_header = msg.get("From", "")
-            from_email = email.utils.parseaddr(from_header)[1].lower().strip()
-            
-            subject_header = msg.get("Subject", "")
-            subject_decoded = ""
-            for part, encoding in decode_header(subject_header):
-                if isinstance(part, bytes):
-                    subject_decoded += part.decode(encoding or 'utf-8', errors='ignore')
-                else:
-                    subject_decoded += str(part)
-            
+        else:
             cursor.execute(
-                "SELECT id FROM clients WHERE LOWER(email) = %s OR LOWER(email_2) = %s",
-                (from_email, from_email)
+                "INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date) VALUES (%s, %s, %s, %s, %s)",
+                (client_id, p_amt, month_name, a_amt, payment_date if payment_date else None)
             )
-            client_row = cursor.fetchone()
             
-            if client_row:
-                client_id = client_row[0]
-                email_body = decode_email_body(msg)
-                
-                final_history_text = f"[📩 Вхідний лист] Тема: \"{subject_decoded.strip()}\"\n\n{email_body}"
-                current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
-                
-                cursor.execute(
-                    "INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, %s)",
-                    (client_id, current_date, final_history_text, 'Продажі')
-                )
-                mail.store(e_id, '+FLAGS', '\\Seen')
-                imported_count += 1
-        
         conn.commit()
         cursor.close()
         conn.close()
-        mail.close()
-        mail.logout()
-        
-        return jsonify({'success': True, 'message': f'Синхронізація завершена! Імпортовано відповідей: {imported_count}'})
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Помилка IMAP: {str(e)}'})
+    return redirect(url_for('index', tab='finance', finance_month=month_name))
 
-@app.route('/add_task', methods=['POST'])
-@login_required
-def add_task():
-    text = request.form.get('text')
-    deadline = request.form.get('deadline', '')
-    author = request.form.get('author', 'Продажі')
-    if text and deadline:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO tasks (text, deadline, author, status) VALUES (%s, %s, %s, 'in_progress')", (text, deadline, author))
-        conn.commit()
-        cursor.close()
-        conn.close()
-    return redirect(url_for('index', tab='tasks'))
-
-@app.route('/edit_task/<int:task_id>', methods=['POST'])
-@login_required
-def edit_task(task_id):
-    text = request.form.get('text', '').strip()
-    deadline = request.form.get('deadline', '').strip()
-    author = request.form.get('author', 'Продажі')
-    if text and deadline:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("UPDATE tasks SET text=%s, deadline=%s, author=%s WHERE id=%s", (text, deadline, author, task_id))
-        conn.commit()
-        cursor.close()
-        conn.close()
-    return redirect(url_for('index', tab='tasks'))
-
-@app.route('/toggle_task/<int:task_id>', methods=['POST'])
-@login_required
-def toggle_task(task_id):
-    current_status = request.form.get('current_status')
-    new_status = 'completed' if current_status == 'in_progress' else 'in_progress'
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE tasks SET status=%s WHERE id=%s", (new_status, task_id))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return redirect(url_for('index', tab='tasks'))
-
-@app.route('/delete_task/<int:task_id>', methods=['POST'])
-@login_required
-def delete_task(task_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM tasks WHERE id=%s", (task_id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return redirect(url_for('index', tab='tasks'))
-
+# СТВОРЕННЯ КЛІЄНТА
 @app.route('/add_client', methods=['POST'])
 @login_required
 def add_client():
@@ -1132,80 +994,6 @@ def delete_client(client_id):
     cursor.close()
     conn.close()
     return redirect(url_for('index'))
-
-@app.route('/add_finance_plan', methods=['POST'])
-@login_required
-def add_finance_plan():
-    client_id = request.form.get('client_id')
-    planned_amount = request.form.get('planned_amount', 0)
-    month_name = request.form.get('month_name', '')
-    actual_amount = request.form.get('actual_amount', 0)
-    payment_date = request.form.get('payment_date', '')
-    
-    try:
-        p_amt = float(planned_amount) if planned_amount else 0.0
-    except Exception:
-        p_amt = 0.0
-
-    try:
-        a_amt = float(actual_amount) if actual_amount else 0.0
-    except Exception:
-        a_amt = 0.0
-
-    if client_id:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute(
-            "SELECT id, planned_amount, actual_amount FROM sales_plans WHERE client_id = %s ORDER BY id DESC LIMIT 1",
-            (client_id,)
-        )
-        existing = cursor.fetchone()
-        
-        if existing:
-            plan_id = existing[0]
-            cur_fact = float(existing[2] or 0)
-            new_fact = cur_fact + a_amt if a_amt > 0 else cur_fact
-            cursor.execute(
-                "UPDATE sales_plans SET planned_amount = %s, month_name = %s, actual_amount = %s, payment_date = COALESCE(NULLIF(%s, ''), payment_date) WHERE id = %s",
-                (p_amt, month_name, new_fact, payment_date, plan_id)
-            )
-        else:
-            cursor.execute(
-                "INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date) VALUES (%s, %s, %s, %s, %s)",
-                (client_id, p_amt, month_name, a_amt, payment_date if payment_date else None)
-            )
-            
-        conn.commit()
-        cursor.close()
-        conn.close()
-    return redirect(url_for('index', tab='finance', finance_month=month_name))
-
-@app.route('/edit_finance_plan/<int:plan_id>', methods=['POST'])
-@login_required
-def edit_finance_plan(plan_id):
-    planned_amount = request.form.get('planned_amount', 0)
-    month_name = request.form.get('month_name', '')
-    actual_amount = request.form.get('actual_amount', 0)
-    payment_date = request.form.get('payment_date', '')
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE sales_plans SET planned_amount=%s, month_name=%s, actual_amount=%s, payment_date=%s WHERE id=%s", (planned_amount if planned_amount else 0, month_name, actual_amount if actual_amount else 0, payment_date, plan_id))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return redirect(url_for('index', tab='finance', finance_month=month_name))
-
-@app.route('/delete_finance_plan/<int:plan_id>', methods=['POST'])
-@login_required
-def delete_finance_plan(plan_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM sales_plans WHERE id=%s", (plan_id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return redirect(url_for('index', tab='finance'))
 
 @app.route('/client/<int:client_id>', methods=['GET', 'POST'])
 @login_required
