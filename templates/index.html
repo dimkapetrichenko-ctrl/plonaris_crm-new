@@ -561,29 +561,29 @@
     </div>
 </div>
 
-<!-- ВІКНО: ФІНАНСИ & РІЧНИЙ ПЛАН (PLN) -->
+<!-- ВІКНО: ФІНАНСИ & ОПЛАТИ (PLN) -->
 <div id="window-finance-win" class="crm-window" style="display: none;">
     <div class="row g-3">
-        <!-- Ліва колонка: Форми додавання надходження або плану -->
+        <!-- Ліва колонка: Додавання надходження або очікування оплати -->
         <div class="col-md-4">
             <div class="card shadow-sm border-0 mb-3">
                 <div class="card-header bg-dark text-white p-2">
                     <ul class="nav nav-pills nav-fill" id="financeTab" role="tablist">
                         <li class="nav-item">
                             <button class="nav-link active py-1 text-white fw-bold" id="pay-fact-tab" data-bs-toggle="tab" data-bs-target="#tab-pay-fact" type="button" style="font-size: 0.78rem;">
-                                💰 Оплата (ФАКТ)
+                                💰 Додати платіж / рахунок
                             </button>
                         </li>
                         <li class="nav-item">
                             <button class="nav-link py-1 text-white fw-bold" id="pay-plan-tab" data-bs-toggle="tab" data-bs-target="#tab-pay-plan" type="button" style="font-size: 0.78rem;">
-                                📁 План надходження
+                                📁 Річний план
                             </button>
                         </li>
                     </ul>
                 </div>
                 
                 <div class="card-body p-3 bg-light-subtle tab-content" style="font-size: 0.85rem;">
-                    <!-- Вкладка 1: Ручне введення факту оплати -->
+                    <!-- Вкладка 1: Фіксація оплати або очікування платежу -->
                     <div class="tab-pane fade show active" id="tab-pay-fact">
                         <form action="/add_direct_payment" method="POST" onsubmit="syncFactClientId()">
                             <div class="mb-2">
@@ -596,28 +596,41 @@
                                     {% endfor %}
                                 </datalist>
                             </div>
+
                             <div class="mb-2">
-                                <label class="form-label mb-0 small text-muted">Сума оплати, PLN (zł) *:</label>
-                                <input type="number" step="0.01" name="actual_amount" class="form-control form-control-sm fw-bold text-success" placeholder="0.00 zł" required>
+                                <label class="form-label mb-0 fw-bold">Стан операції:</label>
+                                <select name="status_type" class="form-select form-select-sm fw-bold">
+                                    <option value="waiting" selected>🟡 Чекаємо оплату (товар відправлено / рахунок виставлено)</option>
+                                    <option value="paid">🟢 Оплачено (кошти зараховано)</option>
+                                </select>
                             </div>
+
                             <div class="mb-2">
-                                <label class="form-label mb-0 small text-muted">Дата оплати:</label>
+                                <label class="form-label mb-0 small text-muted">Сума, PLN (zł) *:</label>
+                                <input type="number" step="0.01" name="amount" class="form-control form-control-sm fw-bold text-success" placeholder="0.00 zł" required>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="form-label mb-0 small text-muted">Дата:</label>
                                 <input type="date" name="payment_date" class="form-control form-control-sm fw-bold" value="{{ today_date }}">
                             </div>
+
                             <div class="mb-2">
-                                <label class="form-label mb-0 small text-muted">Місяць зарахування:</label>
+                                <label class="form-label mb-0 small text-muted">Місяць:</label>
                                 <select name="month_name" class="form-select form-select-sm">
                                     {% for m in ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"] %}
                                     <option value="{{ m }}" {% if m == "Серпень" %}selected{% endif %}>{{ m }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
+
                             <div class="mb-3">
-                                <label class="form-label mb-0 small text-muted">Примітка / № Рахунку:</label>
-                                <input type="text" name="note" class="form-control form-control-sm" placeholder="напр: Оплата рахунку P5/08">
+                                <label class="form-label mb-0 small text-muted">Примітка / № Рахунку / ТТН:</label>
+                                <input type="text" name="note" class="form-control form-control-sm" placeholder="напр: Рахунок P5/08, DPD 12345">
                             </div>
+
                             <button type="submit" class="btn btn-sm btn-success w-100 fw-bold shadow-xs">
-                                🚀 Зафіксувати оплату в PLN
+                                🚀 Зберегти запис у фінансах
                             </button>
                         </form>
                     </div>
@@ -648,7 +661,7 @@
                                 </select>
                             </div>
                             <button type="submit" class="btn btn-sm btn-brand w-100 fw-bold shadow-xs mt-2">
-                                💾 Додати в план
+                                💾 Додати в річний план
                             </button>
                         </form>
                     </div>
@@ -656,11 +669,11 @@
             </div>
         </div>
 
-        <!-- Права колонка: Зведена відомість з редагуванням та видаленням -->
+        <!-- Права колонка: Зведена відомість з бейджами "Чекаємо оплату" / "Оплачено" -->
         <div class="col-md-8">
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white py-2.5 d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom">
-                    <span class="fw-bold text-dark">📋 Журнал надходжень та плану (PLN)</span>
+                    <span class="fw-bold text-dark">📋 Журнал надходжень та очікуваних оплат (PLN)</span>
                     <form method="GET" action="/" class="d-flex align-items-center gap-1 mb-0">
                         <input type="hidden" name="tab" value="finance">
                         <select name="finance_month" class="form-select form-select-sm bg-light text-dark fw-semibold" onchange="this.form.submit()" style="max-width: 160px; cursor: pointer;">
@@ -676,11 +689,11 @@
                         <thead class="table-light position-sticky top-0">
                             <tr>
                                 <th>Назва контрагента</th>
-                                <th class="text-end text-muted">План, zł</th>
-                                <th>Місяць</th>
+                                <th class="text-center">Стан оплати</th>
+                                <th class="text-end text-muted">Виставлено / План, zł</th>
                                 <th class="text-end text-success">Оплачено (Факт), zł</th>
-                                <th>Дата оплати</th>
-                                <th class="text-center" style="width: 100px;">Дії</th>
+                                <th>Дата</th>
+                                <th class="text-center" style="width: 120px;">Дії</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -689,12 +702,38 @@
                                 <td>
                                     <a href="/client/{{ plan.client_id }}" class="fw-bold text-decoration-none text-dark">🏢 {{ plan.client_name }}</a>
                                 </td>
-                                <td class="text-end text-muted fw-semibold">{{ "{:,.2f}".format(plan.planned_amount) }} zł</td>
-                                <td><span class="badge bg-light text-dark border px-2">{{ plan.month_name }}</span></td>
-                                <td class="text-end fw-bold text-success">{{ "{:,.2f}".format(plan.actual_amount) }} zł</td>
-                                <td class="text-muted small">{{ plan.payment_date if plan.payment_date != '-' else '' }}</td>
                                 <td class="text-center">
-                                    <div class="d-flex justify-content-center gap-1">
+                                    {% if plan.actual_amount > 0 and (plan.actual_amount >= plan.planned_amount or plan.planned_amount == 0) %}
+                                        <span class="badge badge-soft-success fw-bold px-2 py-1">🟢 Оплачено</span>
+                                    {% else %}
+                                        <span class="badge badge-soft-warning fw-bold px-2 py-1">🟡 Чекаємо оплату</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end text-muted fw-semibold">
+                                    {% if plan.planned_amount > 0 %}
+                                        {{ "{:,.2f}".format(plan.planned_amount) }} zł
+                                    {% else %}-{% endif %}
+                                </td>
+                                <td class="text-end fw-bold text-success">
+                                    {% if plan.actual_amount > 0 %}
+                                        {{ "{:,.2f}".format(plan.actual_amount) }} zł
+                                    {% else %}
+                                        <span class="text-muted fw-normal">0.00 zł</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted small">
+                                    {{ plan.payment_date if plan.payment_date != '-' else '' }} 
+                                    <span class="badge bg-light text-dark border ms-1" style="font-size:0.7rem;">{{ plan.month_name }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center gap-1 align-items-center">
+                                        <!-- Кнопка швидкого підтвердження оплати -->
+                                        {% if plan.actual_amount == 0 and plan.planned_amount > 0 %}
+                                        <form action="/mark_as_paid/{{ plan.id }}" method="POST" class="m-0" title="Позначити як оплачено">
+                                            <button type="submit" class="btn btn-xs btn-success py-0.5 px-1.5 fw-bold" style="font-size:0.72rem;">✔ Оплачено</button>
+                                        </form>
+                                        {% endif %}
+
                                         <button class="btn btn-xs btn-outline-secondary py-0.5 px-1.5 fw-bold btn-edit-finance" 
                                                 data-id="{{ plan.id }}" 
                                                 data-client="{{ plan.client_name }}" 
@@ -717,12 +756,11 @@
                         </tbody>
                         <tfoot class="table-light fw-bold border-top text-dark position-sticky bottom-0">
                             <tr>
-                                <td class="text-end text-uppercase">💰 Разом:</td>
+                                <td colspan="2" class="text-end text-uppercase">💰 Разом:</td>
                                 <td class="text-end text-muted">{{ "{:,.2f}".format(total_planned) }} zł</td>
-                                <td></td>
                                 <td class="text-end text-success fs-6">{{ "{:,.2f}".format(total_actual) }} zł</td>
                                 <td colspan="2" class="text-center bg-success-subtle text-success py-1.5" style="font-size: 0.78rem;">
-                                    Залишок до плану: <strong>{{ "{:,.2f}".format(total_remaining) }} zł</strong>
+                                    Залишок до виконання: <strong>{{ "{:,.2f}".format(total_remaining) }} zł</strong>
                                 </td>
                             </tr>
                         </tfoot>
@@ -830,13 +868,13 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-dark text-white py-2.5">
-                <h6 class="modal-title fw-bold">✏️ Редагувати платіж / план: <span id="edit_finance_client_name" class="text-success"></span></h6>
+                <h6 class="modal-title fw-bold">✏️ Редагувати платіж / рахунок: <span id="edit_finance_client_name" class="text-success"></span></h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="editFinanceForm" method="POST" action="">
                 <div class="modal-body p-3 bg-light-subtle" style="font-size: 0.85rem;">
                     <div class="mb-2">
-                        <label class="form-label mb-0 small text-muted">Заплановано отримати, PLN (zł):</label>
+                        <label class="form-label mb-0 small text-muted">Виставлено рахунок / План, PLN (zł):</label>
                         <input type="number" step="0.01" name="planned_amount" id="edit_planned_amount" class="form-control form-control-sm fw-bold text-muted">
                     </div>
                     <div class="mb-2">
@@ -852,7 +890,7 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label mb-0 small text-muted">Дата оплати:</label>
+                        <label class="form-label mb-0 small text-muted">Дата:</label>
                         <input type="date" name="payment_date" id="edit_payment_date" class="form-control form-control-sm fw-bold">
                     </div>
                     <div class="d-flex justify-content-between gap-2">
@@ -1049,7 +1087,7 @@ let tasksYear = new Date().getFullYear();
 let tasksMonth = new Date().getMonth();
 const monthNames = ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"];
 
-// ЛОГІКА ІНТЕРАКТИВНОГО БЛОКНОТА
+// ЛОГІКА БЛОКНОТА
 let notebookPages = [];
 let currentNoteIndex = 0;
 let saveTimeout = null;
@@ -1550,7 +1588,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const deleteBtn = document.getElementById('btn_delete_finance');
             if (deleteBtn) {
                 deleteBtn.onclick = function() {
-                    if (confirm(`Ви дійсно бажаєте видалити фінансовий запис для ${clientName}?`)) {
+                    if (confirm(`Ви дійсно бажаєте видалити цей фінансовий запис для ${clientName}?`)) {
                         const delForm = document.createElement('form');
                         delForm.method = 'POST';
                         delForm.action = `/delete_finance_plan/${planId}`;
