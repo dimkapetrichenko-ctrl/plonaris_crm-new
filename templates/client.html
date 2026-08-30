@@ -14,6 +14,12 @@
         </div>
         
         <div class="d-flex gap-2">
+            <!-- КНОПКА ЗЧИТУВАННЯ PDF САМЕ ДЛЯ ЦЬОГО КЛІЄНТА -->
+            <button type="button" class="btn btn-outline-success btn-sm fw-bold shadow-sm d-flex align-items-center gap-1" onclick="document.getElementById('clientInvoiceFileInput').click()">
+                <i class="bi bi-file-earmark-pdf"></i> Зчитати рахунок (PDF)
+            </button>
+            <input type="file" id="clientInvoiceFileInput" accept=".pdf" style="display: none;" onchange="uploadClientInvoiceFile(this, {{ client.id }})">
+
             {% if client.is_active %}
             <button class="btn btn-sm btn-outline-danger fw-bold shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#deactivateModal">
                 ⛔ В архів
@@ -161,7 +167,7 @@
                     <h6 class="text-success mt-3 border-bottom pb-1 mb-1">👤 Контактна особа №2</h6>
                     <div class="mb-1"><input type="text" name="contact_person_2" class="form-control form-control-sm" value="{{ client.contact_person_2 }}" placeholder="Ім'я / ПІБ"></div>
                     <div class="mb-1"><input type="text" name="position_2" class="form-control form-control-sm" value="{{ client.position_2 }}" placeholder="Посада"></div>
-                    <div class="mb-1"><input type="text" name="phone_2" class="form-control form-control-sm" value="{{ client.phone_2 }}" placeholder="Телефон"></div>
+                    <div class="mb-1"><input type="text" name="phone_2" class="form-control form-control-sm" value="{{ client.phone_2 }}" placeholder="Телефон / Додатковий"></div>
                     <div class="mb-1"><input type="text" name="whatsapp_2" class="form-control form-control-sm border-success text-success fw-bold" value="{{ client.whatsapp_2 or '' }}" placeholder="🟢 WhatsApp №2"></div>
                     <div class="mb-2"><input type="email" name="email_2" class="form-control form-control-sm" value="{{ client.email_2 }}" placeholder="Email"></div>
 
@@ -437,6 +443,42 @@
     const wMonthNames = ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"];
 
     let quillInstance = null;
+
+    function uploadClientInvoiceFile(input, clientId) {
+        if (!input.files || input.files.length === 0) return;
+        const file = input.files[0];
+        const formData = new FormData();
+        formData.append('invoice_file', file);
+        formData.append('client_id', clientId);
+
+        const btn = document.querySelector('[onclick*="clientInvoiceFileInput"]');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '⏳ Зчитую PDF...';
+        btn.disabled = true;
+
+        fetch('/upload_invoice_pdf', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            input.value = '';
+            if (data.success) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('Помилка: ' + data.message);
+            }
+        })
+        .catch(err => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            input.value = '';
+            alert('Помилка завантаження файлу.');
+        });
+    }
 
     function initQuillEditor() {
         if (!quillInstance && document.getElementById('editor-container')) {
