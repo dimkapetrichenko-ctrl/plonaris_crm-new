@@ -1,14 +1,14 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<!-- КОМПАКТНІ ВЕРХНІ ФІНАНСОВІ ВІДЖЕТИ -->
+<!-- КОМПАКТНІ ВЕРХНІ ФІНАНСОВІ ВІДЖЕТИ В PLN -->
 <div class="row g-2 mb-1">
     <div class="col-md-4">
         <div class="card py-1 px-3 border-start border-4 border-warning shadow-xs">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <span class="text-uppercase text-muted fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">📁 Усього заплановано</span>
-                    <h5 class="mb-0 fw-bold text-dark" style="font-size: 1.15rem;">{{ "{:,.2f}".format(total_planned or 0) }} €</h5>
+                    <h5 class="mb-0 fw-bold text-dark" style="font-size: 1.15rem;">{{ "{:,.2f}".format(total_planned or 0) }} zł</h5>
                 </div>
                 <div class="bg-warning-subtle text-warning p-1.5 rounded-circle fs-5 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
                     <i class="bi bi-calendar2-check"></i>
@@ -21,7 +21,7 @@
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <span class="text-uppercase text-muted fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">💰 Фактично оплачено</span>
-                    <h5 class="mb-0 fw-bold text-success" style="font-size: 1.15rem;">{{ "{:,.2f}".format(total_actual or 0) }} €</h5>
+                    <h5 class="mb-0 fw-bold text-success" style="font-size: 1.15rem;">{{ "{:,.2f}".format(total_actual or 0) }} zł</h5>
                 </div>
                 <div class="bg-success-subtle text-success p-1.5 rounded-circle fs-5 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
                     <i class="bi bi-cash-stack"></i>
@@ -34,7 +34,7 @@
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <span class="text-uppercase text-muted fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">🎯 Залишилось виконати</span>
-                    <h5 class="mb-0 fw-bold text-primary" style="font-size: 1.15rem;">{{ "{:,.2f}".format(total_remaining or 0) }} €</h5>
+                    <h5 class="mb-0 fw-bold text-primary" style="font-size: 1.15rem;">{{ "{:,.2f}".format(total_remaining or 0) }} zł</h5>
                 </div>
                 <div class="bg-primary-subtle text-primary p-1.5 rounded-circle fs-5 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
                     <i class="bi bi-graph-up-arrow"></i>
@@ -59,7 +59,7 @@
                     <i class="bi bi-calendar3 me-1"></i> Календар дій
                 </button>
                 <button onclick="switchWindow('finance-win')" id="btn-finance-win" class="btn btn-sm btn-outline-secondary fw-semibold px-3">
-                    <i class="bi bi-currency-euro me-1"></i> Річний план
+                    <i class="bi bi-currency-exchange me-1"></i> Фінанси & Оплати (PLN)
                 </button>
                 
                 <button onclick="switchWindow('tasks-win')" id="btn-tasks-win" class="btn btn-sm btn-outline-secondary fw-semibold px-3 d-flex align-items-center gap-1.5">
@@ -73,7 +73,6 @@
                     <i class="bi bi-box-seam me-1"></i> Упущений попит
                 </button>
 
-                <!-- ВКЛАДКА ІНТЕРАКТИВНОГО БЛОКНОТА -->
                 <button onclick="switchWindow('notes-win')" id="btn-notes-win" class="btn btn-sm btn-outline-secondary fw-semibold px-3">
                     <i class="bi bi-journal-text text-success me-1"></i> Блокнот ✍️
                 </button>
@@ -91,7 +90,6 @@
                     <i class="bi bi-plus-lg"></i> Новий запис
                 </button>
                 
-                <!-- КНОПКА ЗЧИТУВАННЯ PDF-РАХУНКУ -->
                 <button type="button" class="btn btn-outline-success btn-sm fw-bold px-3 shadow-sm d-flex align-items-center gap-1" onclick="document.getElementById('invoiceFileInput').click()">
                     <i class="bi bi-file-earmark-pdf"></i> Зчитати рахунок (PDF)
                 </button>
@@ -101,7 +99,6 @@
                     <i class="bi bi-file-earmark-excel"></i> Експорт Excel
                 </a>
 
-                <!-- ПЕРЕМИКАЧ СТАТУСУ -->
                 <form method="GET" action="/" class="d-flex align-items-center m-0">
                     <input type="hidden" name="search" value="{{ search_query }}">
                     <input type="hidden" name="interest" value="{{ interest_filter }}">
@@ -358,7 +355,6 @@
                 <div class="notebook-paper">
                     <div class="notebook-margin-line"></div>
                     
-                    <!-- Шапка аркуша: Заголовок + Велика рукописна дата -->
                     <div class="d-flex justify-content-between align-items-baseline mb-4 gap-3">
                         <div style="flex-grow: 1;">
                             <input type="text" id="notebook-title" class="notebook-handwriting notebook-title-input" placeholder="Заголовок нотатки..." oninput="autoSaveNote()">
@@ -565,54 +561,106 @@
     </div>
 </div>
 
-<!-- ВІКНО: РІЧНИЙ ПЛАН -->
+<!-- ВІКНО: ФІНАНСИ & РІЧНИЙ ПЛАН (PLN) -->
 <div id="window-finance-win" class="crm-window" style="display: none;">
     <div class="row g-3">
-        <div class="col-md-3">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-dark text-white py-2 fw-bold">➕ Додати плановий показник</div>
-                <div class="card-body p-3 bg-light-subtle" style="font-size: 0.85rem;">
-                    <form action="/add_finance_plan" method="POST" onsubmit="syncClientId()">
-                        <div class="mb-2">
-                            <label class="form-label mb-0 fw-bold">Назва партнера:</label>
-                            <input type="text" id="client_search_input" class="form-control form-control-sm" placeholder="🔍 Почніть писати..." list="clients_datalist" oninput="syncClientId()" required autocomplete="off">
-                            <input type="hidden" id="real_client_id" name="client_id">
-                            <datalist id="clients_datalist">
-                                {% for sel_c in all_selector_clients %}
-                                <option data-id="{{ sel_c[0] }}" value="{{ sel_c[1] }}"></option>
-                                {% endfor %}
-                            </datalist>
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label mb-0 small text-muted">План надходження, EUR:</label>
-                            <input type="number" step="0.01" name="planned_amount" class="form-control form-control-sm fw-bold text-success" required>
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label mb-0 small text-muted">Місяць:</label>
-                            <select name="month_name" class="form-select form-select-sm">
-                                <option value="Січень">Січень</option><option value="Лютий">Лютий</option><option value="Березень">Березень</option>
-                                <option value="Квітень">Квітень</option><option value="Травень">Травень</option><option value="Червень">Червень</option>
-                                <option value="Липень">Липень</option><option value="Серпень" selected>Серпень</option><option value="Вересень">Вересень</option>
-                                <option value="Жовтень">Жовтень</option><option value="Листопад">Листопад</option><option value="Грудень">Грудень</option>
-                            </select>
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label mb-0 small text-muted">Фактично отримано, EUR:</label>
-                            <input type="number" step="0.01" name="actual_amount" class="form-control form-control-sm" value="0">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label mb-0 small text-muted">Дата оплати:</label>
-                            <input type="date" name="payment_date" class="form-control form-control-sm">
-                        </div>
-                        <button type="submit" class="btn btn-sm btn-brand w-100 fw-bold">Зберегти показник</button>
-                    </form>
+        <!-- Ліва колонка: Форми додавання надходження або плану -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 mb-3">
+                <div class="card-header bg-dark text-white p-2">
+                    <ul class="nav nav-pills nav-fill" id="financeTab" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active py-1 text-white fw-bold" id="pay-fact-tab" data-bs-toggle="tab" data-bs-target="#tab-pay-fact" type="button" style="font-size: 0.78rem;">
+                                💰 Оплата (ФАКТ)
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link py-1 text-white fw-bold" id="pay-plan-tab" data-bs-toggle="tab" data-bs-target="#tab-pay-plan" type="button" style="font-size: 0.78rem;">
+                                📁 План надходження
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="card-body p-3 bg-light-subtle tab-content" style="font-size: 0.85rem;">
+                    <!-- Вкладка 1: Ручне введення факту оплати -->
+                    <div class="tab-pane fade show active" id="tab-pay-fact">
+                        <form action="/add_direct_payment" method="POST" onsubmit="syncFactClientId()">
+                            <div class="mb-2">
+                                <label class="form-label mb-0 fw-bold">Клієнт / Партнер:</label>
+                                <input type="text" id="fact_client_search_input" class="form-control form-control-sm" placeholder="🔍 Почніть писати назву..." list="fact_clients_datalist" oninput="syncFactClientId()" required autocomplete="off">
+                                <input type="hidden" id="fact_real_client_id" name="client_id">
+                                <datalist id="fact_clients_datalist">
+                                    {% for sel_c in all_selector_clients %}
+                                    <option data-id="{{ sel_c[0] }}" value="{{ sel_c[1] }}"></option>
+                                    {% endfor %}
+                                </datalist>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label mb-0 small text-muted">Сума оплати, PLN (zł) *:</label>
+                                <input type="number" step="0.01" name="actual_amount" class="form-control form-control-sm fw-bold text-success" placeholder="0.00 zł" required>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label mb-0 small text-muted">Дата оплати:</label>
+                                <input type="date" name="payment_date" class="form-control form-control-sm fw-bold" value="{{ today_date }}">
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label mb-0 small text-muted">Місяць зарахування:</label>
+                                <select name="month_name" class="form-select form-select-sm">
+                                    {% for m in ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"] %}
+                                    <option value="{{ m }}" {% if m == "Серпень" %}selected{% endif %}>{{ m }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label mb-0 small text-muted">Примітка / № Рахунку:</label>
+                                <input type="text" name="note" class="form-control form-control-sm" placeholder="напр: Оплата рахунку P5/08">
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-success w-100 fw-bold shadow-xs">
+                                🚀 Зафіксувати оплату в PLN
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Вкладка 2: Додавання планового показника -->
+                    <div class="tab-pane fade" id="tab-pay-plan">
+                        <form action="/add_finance_plan" method="POST" onsubmit="syncPlanClientId()">
+                            <div class="mb-2">
+                                <label class="form-label mb-0 fw-bold">Клієнт / Партнер:</label>
+                                <input type="text" id="plan_client_search_input" class="form-control form-control-sm" placeholder="🔍 Почніть писати назву..." list="plan_clients_datalist" oninput="syncPlanClientId()" required autocomplete="off">
+                                <input type="hidden" id="plan_real_client_id" name="client_id">
+                                <datalist id="plan_clients_datalist">
+                                    {% for sel_c in all_selector_clients %}
+                                    <option data-id="{{ sel_c[0] }}" value="{{ sel_c[1] }}"></option>
+                                    {% endfor %}
+                                </datalist>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label mb-0 small text-muted">Заплановано отримати, PLN (zł) *:</label>
+                                <input type="number" step="0.01" name="planned_amount" class="form-control form-control-sm fw-bold text-success" placeholder="0.00 zł" required>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label mb-0 small text-muted">Місяць:</label>
+                                <select name="month_name" class="form-select form-select-sm">
+                                    {% for m in ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"] %}
+                                    <option value="{{ m }}" {% if m == "Серпень" %}selected{% endif %}>{{ m }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-brand w-100 fw-bold shadow-xs mt-2">
+                                💾 Додати в план
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-9">
+
+        <!-- Права колонка: Зведена відомість з редагуванням та видаленням -->
+        <div class="col-md-8">
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white py-2.5 d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom">
-                    <span class="fw-bold text-dark">📋 Зведена відомість надходжень</span>
+                    <span class="fw-bold text-dark">📋 Журнал надходжень та плану (PLN)</span>
                     <form method="GET" action="/" class="d-flex align-items-center gap-1 mb-0">
                         <input type="hidden" name="tab" value="finance">
                         <select name="finance_month" class="form-select form-select-sm bg-light text-dark fw-semibold" onchange="this.form.submit()" style="max-width: 160px; cursor: pointer;">
@@ -627,33 +675,54 @@
                     <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem; width:100%;">
                         <thead class="table-light position-sticky top-0">
                             <tr>
-                                <th>Назва партнера</th><th>Країна</th><th class="text-end text-success">Заплановано, EUR</th><th>Місяць</th><th class="text-end text-success">Фактично, EUR</th><th>Дата надходження</th><th class="text-center">Дія</th>
+                                <th>Назва контрагента</th>
+                                <th class="text-end text-muted">План, zł</th>
+                                <th>Місяць</th>
+                                <th class="text-end text-success">Оплачено (Факт), zł</th>
+                                <th>Дата оплати</th>
+                                <th class="text-center" style="width: 100px;">Дії</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for plan in finance_plans %}
                             <tr>
-                                <td><a href="/client/{{ plan.client_id }}" class="fw-bold text-decoration-none text-dark">🏢 {{ plan.client_name }}</a></td>
-                                <td><span class="badge badge-soft-secondary">📍 {{ plan.country }}</span></td>
-                                <td class="text-end fw-bold text-success">{{ "{:,.2f}".format(plan.planned_amount) }} €</td>
+                                <td>
+                                    <a href="/client/{{ plan.client_id }}" class="fw-bold text-decoration-none text-dark">🏢 {{ plan.client_name }}</a>
+                                </td>
+                                <td class="text-end text-muted fw-semibold">{{ "{:,.2f}".format(plan.planned_amount) }} zł</td>
                                 <td><span class="badge bg-light text-dark border px-2">{{ plan.month_name }}</span></td>
-                                <td class="text-end fw-bold text-success">{{ "{:,.2f}".format(plan.actual_amount) }} €</td>
-                                <td class="text-muted small">{{ plan.payment_date }}</td>
+                                <td class="text-end fw-bold text-success">{{ "{:,.2f}".format(plan.actual_amount) }} zł</td>
+                                <td class="text-muted small">{{ plan.payment_date if plan.payment_date != '-' else '' }}</td>
                                 <td class="text-center">
-                                    <button class="btn btn-xs btn-outline-secondary py-0 px-1.5 fw-bold btn-edit-finance" 
-                                            data-id="{{ plan.id }}" data-client="{{ plan.client_name }}" data-planned="{{ plan.planned_amount }}" data-month="{{ plan.month_name }}" data-actual="{{ plan.actual_amount }}" data-date="{{ plan.payment_date or '' }}">✏️ Ред.</button>
+                                    <div class="d-flex justify-content-center gap-1">
+                                        <button class="btn btn-xs btn-outline-secondary py-0.5 px-1.5 fw-bold btn-edit-finance" 
+                                                data-id="{{ plan.id }}" 
+                                                data-client="{{ plan.client_name }}" 
+                                                data-planned="{{ plan.planned_amount }}" 
+                                                data-month="{{ plan.month_name }}" 
+                                                data-actual="{{ plan.actual_amount }}" 
+                                                data-date="{{ plan.payment_date if plan.payment_date != '-' else '' }}"
+                                                title="Редагувати">✏️</button>
+                                        
+                                        <form action="/delete_finance_plan/{{ plan.id }}" method="POST" class="m-0" onsubmit="return confirm('Видалити цей фінансовий запис для {{ plan.client_name }}?');">
+                                            <button type="submit" class="btn btn-xs btn-outline-danger py-0.5 px-1.5" title="Видалити">🗑️</button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}
+                            {% if not finance_plans %}
+                            <tr><td colspan="6" class="text-center text-muted py-4">Фінансових записів ще немає.</td></tr>
+                            {% endif %}
                         </tbody>
                         <tfoot class="table-light fw-bold border-top text-dark position-sticky bottom-0">
                             <tr>
-                                <td colspan="2" class="text-end text-uppercase">💰 Разом:</td>
-                                <td class="text-end text-success fs-6">{{ "{:,.2f}".format(total_planned) }} €</td>
+                                <td class="text-end text-uppercase">💰 Разом:</td>
+                                <td class="text-end text-muted">{{ "{:,.2f}".format(total_planned) }} zł</td>
                                 <td></td>
-                                <td class="text-end text-success fs-6">{{ "{:,.2f}".format(total_actual) }} €</td>
+                                <td class="text-end text-success fs-6">{{ "{:,.2f}".format(total_actual) }} zł</td>
                                 <td colspan="2" class="text-center bg-success-subtle text-success py-1.5" style="font-size: 0.78rem;">
-                                    Залишок до виконання: <strong>{{ "{:,.2f}".format(total_remaining) }} €</strong>
+                                    Залишок до плану: <strong>{{ "{:,.2f}".format(total_remaining) }} zł</strong>
                                 </td>
                             </tr>
                         </tfoot>
@@ -756,39 +825,38 @@
     </div>
 </div>
 
-<!-- МОДАЛЬНІ ВІКНА РЕДАГУВАННЯ -->
+<!-- МОДАЛЬНЕ ВІКНО РЕДАГУВАННЯ ФІНАНСОВОГО ЗАПИСУ -->
 <div class="modal fade" id="editFinanceModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-dark text-white py-2.5">
-                <h6 class="modal-title fw-bold">✏️ Редагувати плановий показник: <span id="edit_finance_client_name" class="text-success"></span></h6>
+                <h6 class="modal-title fw-bold">✏️ Редагувати платіж / план: <span id="edit_finance_client_name" class="text-success"></span></h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="editFinanceForm" method="POST" action="">
                 <div class="modal-body p-3 bg-light-subtle" style="font-size: 0.85rem;">
                     <div class="mb-2">
-                        <label class="form-label mb-0 small text-muted">Заплановано надходження, EUR:</label>
-                        <input type="number" step="0.01" name="planned_amount" id="edit_planned_amount" class="form-control form-control-sm fw-bold text-success" required>
+                        <label class="form-label mb-0 small text-muted">Заплановано отримати, PLN (zł):</label>
+                        <input type="number" step="0.01" name="planned_amount" id="edit_planned_amount" class="form-control form-control-sm fw-bold text-muted">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label mb-0 small text-muted">Фактично оплачено, PLN (zł):</label>
+                        <input type="number" step="0.01" name="actual_amount" id="edit_actual_amount" class="form-control form-control-sm fw-bold text-success" required>
                     </div>
                     <div class="mb-2">
                         <label class="form-label mb-0 small text-muted">Місяць:</label>
-                        <select name="month_name" id="edit_month_name" class="form-select form-select-sm">
-                            <option value="Січень">Січень</option><option value="Лютий">Лютий</option><option value="Березень">Березень</option>
-                            <option value="Квітень">Квітень</option><option value="Травень">Травень</option><option value="Червень">Червень</option>
-                            <option value="Липень">Липень</option><option value="Серпень">Серпень</option><option value="Вересень">Вересень</option>
-                            <option value="Жовтень">Жовтень</option><option value="Листопад">Листопад</option><option value="Грудень">Грудень</option>
+                        <select name="month_name" id="edit_month_name" class="form-select form-select-sm fw-semibold">
+                            {% for m in ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"] %}
+                            <option value="{{ m }}">{{ m }}</option>
+                            {% endfor %}
                         </select>
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label mb-0 small text-muted">Фактично, EUR:</label>
-                        <input type="number" step="0.01" name="actual_amount" id="edit_actual_amount" class="form-control form-control-sm" value="0">
                     </div>
                     <div class="mb-3">
                         <label class="form-label mb-0 small text-muted">Дата оплати:</label>
-                        <input type="date" name="payment_date" id="edit_payment_date" class="form-control form-control-sm">
+                        <input type="date" name="payment_date" id="edit_payment_date" class="form-control form-control-sm fw-bold">
                     </div>
                     <div class="d-flex justify-content-between gap-2">
-                        <button type="button" class="btn btn-sm btn-outline-danger" id="btn_delete_finance">🗑️ Видалити</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" id="btn_delete_finance">🗑️ Видалити цей запис</button>
                         <button type="submit" class="btn btn-sm btn-brand fw-bold px-4">Зберегти зміни</button>
                     </div>
                 </div>
@@ -797,6 +865,7 @@
     </div>
 </div>
 
+<!-- МОДАЛЬНЕ ВІКНО РЕДАГУВАННЯ ЗАВДАННЯ -->
 <div class="modal fade" id="editTaskModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -882,7 +951,7 @@
     }
     .calendar-today-highlight { outline: 2px solid #2D7F35 !important; outline-offset: -2px; }
 
-    /* СТИЛІ РЕАЛІСТИЧНОГО БЛОКНОТА */
+    /* СТИЛІ БЛОКНОТА */
     .notebook-container {
         background: #fdfbf7;
         border-radius: 8px 16px 16px 8px;
@@ -951,7 +1020,6 @@
         color: #1E5C25;
     }
 
-    /* Велика рукописна дата */
     .notebook-date-text {
         font-family: 'Caveat', cursive, sans-serif;
         font-size: 1.85rem;
@@ -1005,7 +1073,7 @@ function loadNotebookPages() {
                     id: null, 
                     title: 'Мої перші нотатки ✍️', 
                     page_date: getTodayFormattedDate(),
-                    content: 'Це робочий блокнот Plonaris.\nТут зручно записувати ідеї, контакти чи завдання.' 
+                    content: 'Це новий блокнот Plonaris.\nТут зручно записувати ідеї, контакти чи завдання.' 
                 }];
             }
             currentNoteIndex = 0;
@@ -1435,13 +1503,22 @@ function openEditTaskModal(id, text, deadline, author) {
     modal.show();
 }
 
-function syncClientId() {
-    const inputVal = document.getElementById('client_search_input').value;
-    const datalist = document.getElementById('clients_datalist');
+function syncFactClientId() {
+    const inputVal = document.getElementById('fact_client_search_input').value;
+    const datalist = document.getElementById('fact_clients_datalist');
     const options = datalist.getElementsByTagName('option');
     let foundId = "";
     for (let i = 0; i < options.length; i++) { if (options[i].value === inputVal) { foundId = options[i].getAttribute('data-id'); break; } }
-    document.getElementById('real_client_id').value = foundId;
+    document.getElementById('fact_real_client_id').value = foundId;
+}
+
+function syncPlanClientId() {
+    const inputVal = document.getElementById('plan_client_search_input').value;
+    const datalist = document.getElementById('plan_clients_datalist');
+    const options = datalist.getElementsByTagName('option');
+    let foundId = "";
+    for (let i = 0; i < options.length; i++) { if (options[i].value === inputVal) { foundId = options[i].getAttribute('data-id'); break; } }
+    document.getElementById('plan_real_client_id').value = foundId;
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1473,7 +1550,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const deleteBtn = document.getElementById('btn_delete_finance');
             if (deleteBtn) {
                 deleteBtn.onclick = function() {
-                    if (confirm(`Ви дійсно бажаєте видалити запис для ${clientName}?`)) {
+                    if (confirm(`Ви дійсно бажаєте видалити фінансовий запис для ${clientName}?`)) {
                         const delForm = document.createElement('form');
                         delForm.method = 'POST';
                         delForm.action = `/delete_finance_plan/${planId}`;
