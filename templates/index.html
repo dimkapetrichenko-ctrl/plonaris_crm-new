@@ -598,7 +598,7 @@
                             </div>
 
                             <div class="mb-2">
-                                <label class="form-label mb-0 fw-bold">Стан операції:</label>
+                                <label class="form-label mb-0 fw-bold">Стан оплати:</label>
                                 <select name="status_type" class="form-select form-select-sm fw-bold">
                                     <option value="waiting" selected>🟡 Чекаємо оплату (товар відправлено / рахунок виставлено)</option>
                                     <option value="paid">🟢 Оплачено (кошти зараховано)</option>
@@ -630,7 +630,7 @@
                             </div>
 
                             <button type="submit" class="btn btn-sm btn-success w-100 fw-bold shadow-xs">
-                                🚀 Зберегти запис у фінансах
+                                🚀 Зберегти запис як окрему фактуру
                             </button>
                         </form>
                     </div>
@@ -669,11 +669,11 @@
             </div>
         </div>
 
-        <!-- Права колонка: Зведена відомість з бейджами "Чекаємо оплату" / "Оплачено" -->
+        <!-- Права колонка: Зведена відомість з інтерактивними кнопками стану оплати -->
         <div class="col-md-8">
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white py-2.5 d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom">
-                    <span class="fw-bold text-dark">📋 Журнал надходжень та очікуваних оплат (PLN)</span>
+                    <span class="fw-bold text-dark">📋 Журнал фактур та оплат (PLN)</span>
                     <form method="GET" action="/" class="d-flex align-items-center gap-1 mb-0">
                         <input type="hidden" name="tab" value="finance">
                         <select name="finance_month" class="form-select form-select-sm bg-light text-dark fw-semibold" onchange="this.form.submit()" style="max-width: 160px; cursor: pointer;">
@@ -689,11 +689,11 @@
                         <thead class="table-light position-sticky top-0">
                             <tr>
                                 <th>Назва контрагента</th>
-                                <th class="text-center">Стан оплати</th>
+                                <th class="text-center" style="width: 140px;">Стан оплати</th>
                                 <th class="text-end text-muted">Виставлено / План, zł</th>
                                 <th class="text-end text-success">Оплачено (Факт), zł</th>
                                 <th>Дата</th>
-                                <th class="text-center" style="width: 120px;">Дії</th>
+                                <th class="text-center" style="width: 100px;">Дії</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -704,9 +704,19 @@
                                 </td>
                                 <td class="text-center">
                                     {% if plan.actual_amount > 0 and (plan.actual_amount >= plan.planned_amount or plan.planned_amount == 0) %}
-                                        <span class="badge badge-soft-success fw-bold px-2 py-1">🟢 Оплачено</span>
+                                        <form action="/toggle_payment_status/{{ plan.id }}" method="POST" class="m-0 d-inline" title="Натисніть, щоб змінити на 'Чекаємо оплату'">
+                                            <input type="hidden" name="target_status" value="waiting">
+                                            <button type="submit" class="btn btn-xs badge-soft-success border border-success fw-bold px-2 py-1 rounded-pill" style="cursor: pointer;">
+                                                🟢 Оплачено 🔄
+                                            </button>
+                                        </form>
                                     {% else %}
-                                        <span class="badge badge-soft-warning fw-bold px-2 py-1">🟡 Чекаємо оплату</span>
+                                        <form action="/toggle_payment_status/{{ plan.id }}" method="POST" class="m-0 d-inline" title="Натисніть, щоб позначити як 'Оплачено'">
+                                            <input type="hidden" name="target_status" value="paid">
+                                            <button type="submit" class="btn btn-xs badge-soft-warning border border-warning text-dark fw-bold px-2 py-1 rounded-pill" style="cursor: pointer;">
+                                                🟡 Чекаємо оплату 🔄
+                                            </button>
+                                        </form>
                                     {% endif %}
                                 </td>
                                 <td class="text-end text-muted fw-semibold">
@@ -727,13 +737,6 @@
                                 </td>
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center gap-1 align-items-center">
-                                        <!-- Кнопка швидкого підтвердження оплати -->
-                                        {% if plan.actual_amount == 0 and plan.planned_amount > 0 %}
-                                        <form action="/mark_as_paid/{{ plan.id }}" method="POST" class="m-0" title="Позначити як оплачено">
-                                            <button type="submit" class="btn btn-xs btn-success py-0.5 px-1.5 fw-bold" style="font-size:0.72rem;">✔ Оплачено</button>
-                                        </form>
-                                        {% endif %}
-
                                         <button class="btn btn-xs btn-outline-secondary py-0.5 px-1.5 fw-bold btn-edit-finance" 
                                                 data-id="{{ plan.id }}" 
                                                 data-client="{{ plan.client_name }}" 
@@ -873,6 +876,14 @@
             </div>
             <form id="editFinanceForm" method="POST" action="">
                 <div class="modal-body p-3 bg-light-subtle" style="font-size: 0.85rem;">
+                    <div class="mb-2">
+                        <label class="form-label mb-0 fw-bold">Стан оплати:</label>
+                        <select name="payment_status" id="edit_payment_status" class="form-select form-select-sm fw-bold">
+                            <option value="auto">Автоматично (за введеними сумами)</option>
+                            <option value="waiting">🟡 Чекаємо оплату</option>
+                            <option value="paid">🟢 Оплачено</option>
+                        </select>
+                    </div>
                     <div class="mb-2">
                         <label class="form-label mb-0 small text-muted">Виставлено рахунок / План, PLN (zł):</label>
                         <input type="number" step="0.01" name="planned_amount" id="edit_planned_amount" class="form-control form-control-sm fw-bold text-muted">
@@ -1571,9 +1582,9 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', function() {
             const planId = this.getAttribute('data-id');
             const clientName = this.getAttribute('data-client');
-            const planned = this.getAttribute('data-planned');
+            const planned = parseFloat(this.getAttribute('data-planned') || 0);
             const month = this.getAttribute('data-month');
-            const actual = this.getAttribute('data-actual');
+            const actual = parseFloat(this.getAttribute('data-actual') || 0);
             const date = this.getAttribute('data-date');
 
             document.getElementById('edit_finance_client_name').innerText = clientName;
@@ -1581,6 +1592,13 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('edit_month_name').value = month;
             document.getElementById('edit_actual_amount').value = actual;
             document.getElementById('edit_payment_date').value = date;
+
+            const statusSelect = document.getElementById('edit_payment_status');
+            if (actual > 0) {
+                statusSelect.value = 'paid';
+            } else {
+                statusSelect.value = 'waiting';
+            }
 
             const form = document.getElementById('editFinanceForm');
             form.action = `/edit_finance_plan/${planId}`;
