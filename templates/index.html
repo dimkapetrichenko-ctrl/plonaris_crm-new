@@ -352,7 +352,15 @@
                 <div class="notebook-paper">
                     <div class="notebook-margin-line"></div>
                     
-                    <input type="text" id="notebook-title" class="notebook-handwriting notebook-title-input" placeholder="Заголовок нотатки..." oninput="autoSaveNote()">
+                    <!-- Шапка аркуша: Заголовок + Велика рукописна дата -->
+                    <div class="d-flex justify-content-between align-items-baseline mb-4 gap-3">
+                        <div style="flex-grow: 1;">
+                            <input type="text" id="notebook-title" class="notebook-handwriting notebook-title-input" placeholder="Заголовок нотатки..." oninput="autoSaveNote()">
+                        </div>
+                        <div class="notebook-date-box text-end text-nowrap">
+                            <span id="notebook-page-date" class="notebook-date-text">--.--.----</span>
+                        </div>
+                    </div>
                     
                     <textarea id="notebook-content" class="notebook-handwriting notebook-content-input" placeholder="Пишіть тут свої думки, список справ, розрахунки або важливі нотатки..." oninput="autoSaveNote()"></textarea>
                 </div>
@@ -875,7 +883,7 @@
         border: 1px solid #d9ceb2;
         border-left: 12px solid #2D7F35;
         position: relative;
-        min-height: 580px;
+        min-height: 590px;
         padding-left: 28px;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 2px 2px 8px rgba(0, 0, 0, 0.04);
     }
@@ -901,7 +909,7 @@
     .notebook-paper {
         position: relative;
         padding: 30px 35px 30px 45px;
-        min-height: 580px;
+        min-height: 590px;
         background: repeating-linear-gradient(
             transparent,
             transparent 35px,
@@ -931,11 +939,22 @@
     }
 
     .notebook-title-input {
-        font-size: 2.1rem;
+        font-size: 2.15rem;
         font-weight: 700;
         height: 36px;
         color: #1E5C25;
-        margin-bottom: 36px;
+    }
+
+    /* Велика рукописна дата */
+    .notebook-date-text {
+        font-family: 'Caveat', cursive, sans-serif;
+        font-size: 1.85rem;
+        font-weight: 700;
+        color: #854d0e;
+        line-height: 36px;
+        display: inline-block;
+        border-bottom: 2px dashed rgba(133, 77, 14, 0.4);
+        padding: 0 6px;
     }
 
     .notebook-content-input {
@@ -961,6 +980,14 @@ let notebookPages = [];
 let currentNoteIndex = 0;
 let saveTimeout = null;
 
+function getTodayFormattedDate() {
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}.${month}.${year}`;
+}
+
 function loadNotebookPages() {
     fetch('/notes')
         .then(res => res.json())
@@ -968,7 +995,12 @@ function loadNotebookPages() {
             if (data.success && data.notes.length > 0) {
                 notebookPages = data.notes;
             } else {
-                notebookPages = [{ id: null, title: 'Мої перші нотатки ✍️', content: 'Це новий блокнот Plonaris.\nТут зручно записувати ідеї, контакти чи завдання.' }];
+                notebookPages = [{ 
+                    id: null, 
+                    title: 'Мої перші нотатки ✍️', 
+                    page_date: getTodayFormattedDate(),
+                    content: 'Це новий блокнот Plonaris.\nТут зручно записувати ідеї, контакти чи завдання.' 
+                }];
             }
             currentNoteIndex = 0;
             renderCurrentNotePage();
@@ -980,11 +1012,13 @@ function renderCurrentNotePage() {
     const page = notebookPages[currentNoteIndex];
     document.getElementById('notebook-title').value = page.title || '';
     document.getElementById('notebook-content').value = page.content || '';
+    document.getElementById('notebook-page-date').innerText = page.page_date || getTodayFormattedDate();
     document.getElementById('note-page-indicator').innerText = `Сторінка ${currentNoteIndex + 1} з ${notebookPages.length}`;
 }
 
 function createNewNotePage() {
-    notebookPages.push({ id: null, title: '', content: '' });
+    const newDate = getTodayFormattedDate();
+    notebookPages.push({ id: null, title: '', page_date: newDate, content: '' });
     currentNoteIndex = notebookPages.length - 1;
     renderCurrentNotePage();
     document.getElementById('notebook-title').focus();
@@ -1047,7 +1081,7 @@ function deleteCurrentNotePage() {
 
     notebookPages.splice(currentNoteIndex, 1);
     if (notebookPages.length === 0) {
-        notebookPages = [{ id: null, title: '', content: '' }];
+        notebookPages = [{ id: null, title: '', page_date: getTodayFormattedDate(), content: '' }];
     }
     if (currentNoteIndex >= notebookPages.length) {
         currentNoteIndex = notebookPages.length - 1;
