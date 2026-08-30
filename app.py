@@ -732,12 +732,38 @@ def delete_client(client_id):
     conn.close()
     return redirect(url_for('index'))
 
-# РУЧНІ ОПЛАТИ ТА ПЛАНУВАННЯ
+# ШВИДКЕ ПІДТВЕРДЖЕННЯ ОПЛАТИ (З "ЧЕКАЄМО ОПЛАТУ" В "ОПЛАЧЕНО")
+@app.route('/mark_as_paid/<int:plan_id>', methods=['POST'])
+@login_required
+def mark_as_paid(plan_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=DictCursor)
+    cursor.execute("SELECT * FROM sales_plans WHERE id = %s", (plan_id,))
+    plan = cursor.fetchone()
+    
+    if plan:
+        amt = float(plan['planned_amount'] or 0)
+        p_date = datetime.now().strftime("%Y-%m-%d")
+        cursor.execute("UPDATE sales_plans SET actual_amount = %s, payment_date = %s WHERE id = %s", (amt, p_date, plan_id))
+        
+        # Оновлення історії клієнта
+        log_text = f"💰 [ОПЛАТА ОТРИМАНА] Рахунок на суму {amt:,.2f} PLN повністю сплачено."
+        cursor.execute("INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, 'Продажі')", 
+                       (plan['client_id'], datetime.now().strftime("%Y-%m-%d %H:%M"), log_text))
+        cursor.execute("UPDATE clients SET deal_stage = 'paid_shipped' WHERE id = %s", (plan['client_id'],))
+        
+        conn.commit()
+    cursor.close()
+    conn.close()
+    return redirect(url_for('index', tab='finance'))
+
+# РУЧНЕ ВВЕДЕННЯ (ОПЛАТА АБО РАХУНОК "ЧЕКАЄМО ОПЛАТУ")
 @app.route('/add_direct_payment', methods=['POST'])
 @login_required
 def add_direct_payment():
     client_id = request.form.get('client_id')
-    actual_amount = request.form.get('actual_amount', 0)
+    amount = request.form.get('amount', 0)
+    status_type = request.form.get('status_type', 'paid') # 'paid' або 'waiting'
     payment_date = request.form.get('payment_date', '').strip()
     month_name = request.form.get('month_name', '').strip()
     note = request.form.get('note', '').strip()
@@ -754,7 +780,7 @@ def add_direct_payment():
             month_name = "Серпень"
 
     try:
-        amt_val = float(actual_amount)
+        amt_val = float(amount)
     except Exception:
         amt_val = 0.0
 
@@ -762,18 +788,30 @@ def add_direct_payment():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute("""
-            INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date)
-            VALUES (%s, 0.0, %s, %s, %s)
-        """, (client_id, month_name, amt_val, payment_date))
-        
-        next_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
-        cursor.execute("UPDATE clients SET deal_stage = 'paid_shipped', next_event_date = %s, next_event_type = 'call' WHERE id = %s", (next_date, client_id))
-        
-        note_str = f" Коментар: {note}" if note else ""
-        current_dt = datetime.now().strftime("%Y-%m-%d %H:%M")
-        log_text = f"💰 [ОПЛАТА ВРУЧНУ] Отримано: {amt_val:,.2f} PLN на дату {payment_date}.{note_str}"
-        cursor.execute("INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, 'Продажі')", (client_id, current_dt, log_text))
+        if status_type == 'waiting':
+            # Чекаємо оплату: сума йде в planned_amount, а actual_amount = 0
+            cursor.execute("""
+                INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date)
+                VALUES (%s, %s, %s, 0.0, %s)
+            """, (client_id, amt_val, month_name, payment_date))
+            
+            cursor.execute("UPDATE clients SET deal_stage = 'offer_sent' WHERE id = %s", (client_id,))
+            note_str = f" Коментар: {note}" if note else ""
+            log_text = f"📄 [ВИСТАВЛЕНО РАХУНОК] Сума {amt_val:,.2f} PLN на дату {payment_date}. Очікуємо оплату.{note_str}"
+        else:
+            # Оплачено одразу: сума йде в actual_amount
+            cursor.execute("""
+                INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date)
+                VALUES (%s, 0.0, %s, %s, %s)
+            """, (client_id, month_name, amt_val, payment_date))
+            
+            next_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+            cursor.execute("UPDATE clients SET deal_stage = 'paid_shipped', next_event_date = %s, next_event_type = 'call' WHERE id = %s", (next_date, client_id))
+            note_str = f" Коментар: {note}" if note else ""
+            log_text = f"💰 [ОПЛАТА ВРУЧНУ] Отримано: {amt_val:,.2f} PLN на дату {payment_date}.{note_str}"
+
+        cursor.execute("INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, 'Продажі')", 
+                       (client_id, datetime.now().strftime("%Y-%m-%d %H:%M"), log_text))
         
         conn.commit()
         cursor.close()
@@ -945,7 +983,6 @@ def add_finance_plan():
         conn.close()
     return redirect(url_for('index', tab='finance', finance_month=month_name))
 
-# ЗЧИТУВАННЯ PDF-РАХУНКІВ
 @app.route('/upload_invoice_pdf', methods=['POST'])
 @login_required
 def upload_invoice_pdf():
