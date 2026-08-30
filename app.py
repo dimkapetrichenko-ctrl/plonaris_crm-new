@@ -479,6 +479,61 @@ def index():
         top_demand=top_demand
     )
 
+# МАРШРУТИ ЗАВДАНЬ (ДОДАВАННЯ)
+@app.route('/add_task', methods=['POST'])
+@login_required
+def add_task():
+    text = request.form.get('text')
+    deadline = request.form.get('deadline', '')
+    author = request.form.get('author', 'Продажі')
+    if text and deadline:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO tasks (text, deadline, author, status) VALUES (%s, %s, %s, 'in_progress')", (text, deadline, author))
+        conn.commit()
+        cursor.close()
+        conn.close()
+    return redirect(url_for('index', tab='tasks'))
+
+@app.route('/edit_task/<int:task_id>', methods=['POST'])
+@login_required
+def edit_task(task_id):
+    text = request.form.get('text', '').strip()
+    deadline = request.form.get('deadline', '').strip()
+    author = request.form.get('author', 'Продажі')
+    if text and deadline:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE tasks SET text=%s, deadline=%s, author=%s WHERE id=%s", (text, deadline, author, task_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+    return redirect(url_for('index', tab='tasks'))
+
+@app.route('/toggle_task/<int:task_id>', methods=['POST'])
+@login_required
+def toggle_task(task_id):
+    current_status = request.form.get('current_status')
+    new_status = 'completed' if current_status == 'in_progress' else 'in_progress'
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE tasks SET status=%s WHERE id=%s", (new_status, task_id))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return redirect(url_for('index', tab='tasks'))
+
+@app.route('/delete_task/<int:task_id>', methods=['POST'])
+@login_required
+def delete_task(task_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM tasks WHERE id=%s", (task_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return redirect(url_for('index', tab='tasks'))
+
 # АРХІВАЦІЯ / ВІДНОВЛЕННЯ КЛІЄНТА
 @app.route('/toggle_client_status/<int:client_id>', methods=['POST'])
 @login_required
