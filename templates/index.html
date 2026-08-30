@@ -91,6 +91,12 @@
                     <i class="bi bi-plus-lg"></i> Новий запис
                 </button>
                 
+                <!-- КНОПКА ЗЧИТУВАННЯ PDF-РАХУНКУ -->
+                <button type="button" class="btn btn-outline-success btn-sm fw-bold px-3 shadow-sm d-flex align-items-center gap-1" onclick="document.getElementById('invoiceFileInput').click()">
+                    <i class="bi bi-file-earmark-pdf"></i> Зчитати рахунок (PDF)
+                </button>
+                <input type="file" id="invoiceFileInput" accept=".pdf" style="display: none;" onchange="uploadInvoiceFile(this)">
+
                 <a href="/export_excel" class="btn btn-outline-success btn-sm fw-bold px-3 shadow-sm d-flex align-items-center gap-1">
                     <i class="bi bi-file-earmark-excel"></i> Експорт Excel
                 </a>
@@ -999,7 +1005,7 @@ function loadNotebookPages() {
                     id: null, 
                     title: 'Мої перші нотатки ✍️', 
                     page_date: getTodayFormattedDate(),
-                    content: 'Це новий блокнот Plonaris.\nТут зручно записувати ідеї, контакти чи завдання.' 
+                    content: 'Це робочий блокнот Plonaris.\nТут зручно записувати ідеї, контакти чи завдання.' 
                 }];
             }
             currentNoteIndex = 0;
@@ -1087,6 +1093,42 @@ function deleteCurrentNotePage() {
         currentNoteIndex = notebookPages.length - 1;
     }
     renderCurrentNotePage();
+}
+
+// СКАНУВАННЯ PDF-РАХУНКІВ
+function uploadInvoiceFile(input) {
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('invoice_file', file);
+
+    const btn = document.querySelector('[onclick*="invoiceFileInput"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Зчитую PDF...';
+    btn.disabled = true;
+
+    fetch('/upload_invoice_pdf', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        input.value = '';
+        if (data.success) {
+            alert(data.message);
+            window.location.reload();
+        } else {
+            alert('Помилка: ' + data.message);
+        }
+    })
+    .catch(err => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        input.value = '';
+        alert('Помилка завантаження файлу.');
+    });
 }
 
 function updateTasksDesktopBadges() {
