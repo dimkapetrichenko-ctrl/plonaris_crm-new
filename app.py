@@ -736,7 +736,7 @@ def delete_client(client_id):
 @app.route('/toggle_payment_status/<int:plan_id>', methods=['POST'])
 @login_required
 def toggle_payment_status(plan_id):
-    target_status = request.form.get('target_status') # 'paid' або 'waiting'
+    target_status = request.form.get('target_status')
     
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=DictCursor)
@@ -746,28 +746,20 @@ def toggle_payment_status(plan_id):
     if plan:
         client_id = plan['client_id']
         current_dt = datetime.now().strftime("%Y-%m-%d %H:%M")
+        p_amt = float(plan['planned_amount'] or 0)
+        a_amt = float(plan['actual_amount'] or 0)
         
         if target_status == 'paid':
-            # Робимо оплаченим: сума переходить у факт
-            total_sum = float(plan['planned_amount'] or 0)
-            if total_sum == 0 and float(plan['actual_amount'] or 0) > 0:
-                total_sum = float(plan['actual_amount'] or 0)
-                
+            final_sum = p_amt if p_amt > 0 else a_amt
             p_date = datetime.now().strftime("%Y-%m-%d")
-            cursor.execute("UPDATE sales_plans SET actual_amount = %s, payment_date = %s WHERE id = %s", (total_sum, p_date, plan_id))
+            cursor.execute("UPDATE sales_plans SET actual_amount = %s, payment_date = %s WHERE id = %s", (final_sum, p_date, plan_id))
             cursor.execute("UPDATE clients SET deal_stage = 'paid_shipped' WHERE id = %s", (client_id,))
-            
-            log_text = f"🟢 [ЗМІНА СТАНУ ОПЛАТИ] Рахунок на {total_sum:,.2f} PLN позначено як «ОПЛАЧЕНО» вручну."
+            log_text = f"🟢 [ОПЛАТА] Рахунок на {final_sum:,.2f} PLN позначено як повністю оплачений."
         else:
-            # Робимо "Чекаємо оплату": сума переходить у план, а факт = 0
-            total_sum = float(plan['actual_amount'] or 0)
-            if total_sum == 0 and float(plan['planned_amount'] or 0) > 0:
-                total_sum = float(plan['planned_amount'] or 0)
-                
-            cursor.execute("UPDATE sales_plans SET planned_amount = %s, actual_amount = 0.0 WHERE id = %s", (total_sum, plan_id))
+            final_plan = p_amt if p_amt > 0 else a_amt
+            cursor.execute("UPDATE sales_plans SET planned_amount = %s, actual_amount = 0.0 WHERE id = %s", (final_plan, plan_id))
             cursor.execute("UPDATE clients SET deal_stage = 'offer_sent' WHERE id = %s", (client_id,))
-            
-            log_text = f"🟡 [ЗМІНА СТАНУ ОПЛАТИ] Рахунок на {total_sum:,.2f} PLN переведено в стан «ЧЕКАЄМО ОПЛАТУ»."
+            log_text = f"🟡 [ОЧІКУВАННЯ] Рахунок на {final_plan:,.2f} PLN переведено в стан «Чекаємо оплату»."
 
         cursor.execute("INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, 'Продажі')", (client_id, current_dt, log_text))
         conn.commit()
@@ -782,7 +774,7 @@ def toggle_payment_status(plan_id):
 def add_direct_payment():
     client_id = request.form.get('client_id')
     amount = request.form.get('amount', 0)
-    status_type = request.form.get('status_type', 'waiting') # 'paid' або 'waiting'
+    status_type = request.form.get('status_type', 'waiting')
     payment_date = request.form.get('payment_date', '').strip()
     month_name = request.form.get('month_name', '').strip()
     note = request.form.get('note', '').strip()
@@ -807,7 +799,6 @@ def add_direct_payment():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # ЗАВЖДИ СТВОРЮЄМО НОВИЙ ОКРЕМИЙ ЗАПИС (INSERT)
         if status_type == 'waiting':
             cursor.execute("""
                 INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date)
@@ -867,7 +858,6 @@ def add_quick_sale(client_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # ЗАВЖДИ СТВОРЮЄМО ОКРЕМИЙ РЯДОК ДЛЯ КОЖНОГО ПРОДАЖУ
         cursor.execute("""
             INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date)
             VALUES (%s, 0.0, %s, %s, %s)
@@ -899,7 +889,7 @@ def add_quick_sale(client_id):
         
     return redirect(url_for('client_detail', client_id=client_id))
 
-# РЕДАГУВАННЯ ФІНАНСОВОГО ЗАПИСУ (ЗІ ЗМІНОЮ СТАТУСУ ОПЛАТИ)
+# РЕДАГУВАННЯ ФІНАНСОВОГО ЗАПИСУ (З ПІДТРИМКОЮ ЧАСТКОВОЇ ОПЛАТИ)
 @app.route('/edit_finance_plan/<int:plan_id>', methods=['POST'])
 @login_required
 def edit_finance_plan(plan_id):
@@ -907,7 +897,7 @@ def edit_finance_plan(plan_id):
     month_name = request.form.get('month_name', '')
     actual_amount = request.form.get('actual_amount', 0)
     payment_date = request.form.get('payment_date', '')
-    payment_status = request.form.get('payment_status', 'auto') # 'waiting', 'paid', 'auto'
+    payment_status = request.form.get('payment_status', 'auto')
     
     try:
         p_amt = float(planned_amount) if planned_amount else 0.0
@@ -919,13 +909,8 @@ def edit_finance_plan(plan_id):
     except Exception:
         a_amt = 0.0
 
-    if payment_status == 'waiting':
-        if p_amt == 0 and a_amt > 0:
-            p_amt = a_amt
-        a_amt = 0.0
-    elif payment_status == 'paid':
-        if a_amt == 0 and p_amt > 0:
-            a_amt = p_amt
+    if payment_status == 'paid' and a_amt < p_amt and p_amt > 0:
+        a_amt = p_amt
         
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -973,7 +958,6 @@ def add_finance_plan():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # ЗАВЖДИ СТВОРЮЄМО ОКРЕМИЙ РЯДОК
         cursor.execute(
             "INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date) VALUES (%s, %s, %s, %s, %s)",
             (client_id, p_amt, month_name, a_amt, payment_date if payment_date else None)
@@ -1089,7 +1073,6 @@ def upload_invoice_pdf():
         except Exception:
             month_name = "Серпень"
         
-        # ЗАВЖДИ СТВОРЮЄМО НОВИЙ РЯДОК ДЛЯ КОЖНОЇ НОВОЇ ФАКТУРИ (INSERT)
         cursor.execute("""
             INSERT INTO sales_plans (client_id, planned_amount, month_name, actual_amount, payment_date)
             VALUES (%s, 0.0, %s, %s, %s)
