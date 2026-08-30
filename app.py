@@ -214,6 +214,17 @@ def init_db():
         )
     ''')
     
+    # Створення таблиці інтерактивного блокнота
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS notebook_pages (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            content TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
     conn.commit()
     cursor.close()
     conn.close()
@@ -466,6 +477,107 @@ def index():
         lost_demand_list=lost_demand_list,
         top_demand=top_demand
     )
+
+# МАРШРУТИ ДЛЯ РОБОТИ З БЛОКНОТОМ
+@app.route('/notes')
+@login_required
+def get_notes():
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=DictCursor)
+    cursor.execute("SELECT id, title, content, TO_CHAR(updated_at, 'YYYY-MM-DD HH24:MI') as updated_at FROM notebook_pages ORDER BY id ASC")
+    notes = [dict(r) for r in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return jsonify({'success': True, 'notes': notes})
+
+@app.route('/save_note', methods=['POST'])
+@login_required
+def save_note():
+    data = request.get_json() or {}
+    note_id = data.get('id')
+    title = data.get('title', 'Без назви').strip() or 'Без назви'
+    content = data.get('content', '')
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if note_id:
+        cursor.execute("UPDATE notebook_pages SET title = %s, content = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s RETURNING id", (title, content, note_id))
+    else:
+        cursor.execute("INSERT INTO notebook_pages (title, content) VALUES (%s, %s) RETURNING id", (title, content))
+    saved_id = cursor.fetchone()[0]
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'success': True, 'id': saved_id})
+
+@app.route('/delete_note/<int:note_id>', methods=['POST'])
+@login_required
+def delete_note(note_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM notebook_pages WHERE id = %s", (note_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'success': True})
+
+# МАРШРУТ АВТОМАТИЧНОГО ІМПОРТУ ПАРТНЕРІВ
+@app.route('/run-partners-import')
+@login_required
+def run_partners_import():
+    partners_data = [
+        {"name": "BDO", "country": "Польща", "address": "", "contact_person": "", "position": "", "phone": "", "phone_2": "", "email": "", "website": "https://bdo.mos.gov.pl/", "notes": "Реєстрація BDO / Вивіз відходів"},
+        {"name": "MAYER PRO s.r.o.", "country": "Словаччина", "address": "Jegenesska 9", "contact_person": "Dmytro Petrychenko", "position": "Regional manager", "phone": "501166523", "phone_2": "+421 907 933 441", "email": "sales@mayer-pro.com", "website": "https://mayer-pro.com/pl", "notes": "Постачальник aftermarket запчастин до сільгосптехніки"},
+        {"name": "ZETTA GROUP Sp. z o.o.", "country": "Польща", "address": "ul. Szlak 77/222 31-153 Kraków", "contact_person": "Wiktor Sasulski", "position": "", "phone": "+48 730 898 378", "phone_2": "", "email": "wiktor.sasulski@zettagroup.com.pl", "website": "https://zettagroup.com.pl/pro-kompaniyu/", "notes": "Firma produkuje części do maszyn rolniczych z metali i polimerów stałych. Claas, Geringhoff, John Deere, Case, New Holland, Fantini, Lemken, Oros, Gaspardo i inne."},
+        {"name": "IQ Parts  Beyne GMBH", "country": "Австрія", "address": "Bundesstraße 8A-8661 St. Barbara im Mürztal", "contact_person": "Sven Vierstraete", "position": "", "phone": "+43385860556100", "phone_2": "", "email": "svenvierstraete@iqparts.com", "website": "http://www.iqparts.com", "notes": "Виробник робочих органів"},
+        {"name": "AMA Star", "country": "Туреччина", "address": "Güzelyurt, 5787 Sk. No:9, 45030 Yunusemre/Manisa", "contact_person": "Ersin Vardar", "position": "", "phone": "+90 539 684 86 46", "phone_2": "", "email": "ersinvardar@startrm.com", "website": "https://amastar.com.tr/en", "notes": "Виробляють диски до дискових борін різних марок."},
+        {"name": "Granit Parts", "country": "Польща", "address": "", "contact_person": "Piotr Kowarski", "position": "manager", "phone": "+48 661 300 670", "phone_2": "", "email": "piotr.kowalski@granit-parts.com", "website": "www.granit-parts.pl", "notes": "Логін: 5780340  Пароль: J8fnIF7u"},
+        {"name": "OZDOWSKI", "country": "Польща", "address": "ul.Zebrzydowicka 28, 44-217 Rybnik", "contact_person": "Aleksandra Ozdowska", "position": "", "phone": "+48 535 515 139", "phone_2": "", "email": "aleksandra@fhuozdowski.pl", "website": "https://www.zamiennikirolnicze.pl/", "notes": "Виробляють ланцюги для передачі крутного моменту."},
+        {"name": "Agri Carb (Ceratizit Group)", "country": "Польща", "address": "", "contact_person": "Aron grelich", "position": "technical sales expert", "phone": "+48 667 756 067", "phone_2": "", "email": "aron.grelich@ceratizit.com", "website": "https://agricarb.com/int/en.html", "notes": "Виробляють робочі органи до різних типів грунтообробного обладнання. Спеціалізуються на долотах з карбід-вольфрамовою наплавкою."},
+        {"name": "Agrocolla Navarro", "country": "Іспанія", "address": "", "contact_person": "Santiago Sanchiz Telemin", "position": "", "phone": "+34 628 747 376", "phone_2": "", "email": "export@agricolanavarro.com", "website": "https://agricolanavarro.com/productos/", "notes": "Виробник робочих органів (фрези, мульчувачі, вертикудери, активні культиватори)"},
+        {"name": "BUCO", "country": "Аргентина", "address": "", "contact_person": "Mariano Buconic", "position": "", "phone": "+54 9 11 6454 8147", "phone_2": "", "email": "mariano.buconic@buco.com.ar", "website": "www.buco.com.ar", "notes": "Виробник коліс (прикочуючі колеса, колеса глибини тощо)"},
+        {"name": "Dosemenler", "country": "Туреччина", "address": "", "contact_person": "Serdar Dósemen", "position": "", "phone": "+90 266 626 10 50", "phone_2": "", "email": "serdar@dosemen.com", "website": "https://www.dosemen.com/", "notes": "Розробляють та виготовляють робочі органи"},
+        {"name": "OZAR", "country": "Туреччина", "address": "", "contact_person": "Sidharth Trikha", "position": "", "phone": "+91 941 691 68 20", "phone_2": "", "email": "globalsales@aloktools.com", "website": "https://www.aloktools.com/", "notes": "Виробляють ручний інструмент та інструмент для виробництв."},
+        {"name": "STANMAR", "country": "Польща", "address": "", "contact_person": "Grzegorz Szulc", "position": "", "phone": "+48 883 633 073", "phone_2": "", "email": "grzegorz@stanmar.net.pl", "website": "https://stanmar.net.pl/oferta.html", "notes": "Виробник деталей на замовлення. Токарні та фрезерні роботи."},
+        {"name": "AGROSALIX", "country": "Польща", "address": "", "contact_person": "Tomasz Wierzba", "position": "", "phone": "+48 508 375 808", "phone_2": "", "email": "agrosalixwierzba@gmail.com", "website": "", "notes": "Запчастини до John Deere (двигун)"},
+        {"name": "AGRI-INDUS SAS", "country": "Франція", "address": "", "contact_person": "", "position": "", "phone": "+33344419533", "phone_2": "", "email": "contact@agri-indus.fr", "website": "https://www.agri-indus.fr/", "notes": "Виробник робочих органів з пластинами"},
+        {"name": "ROLMUS", "country": "Польща", "address": "ul. Akacjowa 662-300 Września", "contact_person": "Mieczysław Szymkowiak", "position": "", "phone": "+48 61 4366 754", "phone_2": "", "email": "biuro@rolmus.com.pl", "website": "https://www.rolmus.com.pl/rozsiewacze.html", "notes": "Виробник запчастин до вітчизняної польської техніки"},
+        {"name": "HUO SHIN ENTERPRISE CO.", "country": "Китай", "address": "", "contact_person": "Julie Wang", "position": "", "phone": "+88647713096", "phone_2": "", "email": "huoshin@ms16.hinet.net", "website": "http://www.wlk.com.tw", "notes": "Виробник сальників та прокладок"},
+        {"name": "ZYCHAR", "country": "Польща", "address": "ul. Rolna 4 23-400 Biłgoraj", "contact_person": "", "position": "", "phone": "84 307 01 01", "phone_2": "", "email": "biuro@zychar.pl", "website": "https://www.zychar.pl/", "notes": "Виготовлення бортів до причепів"}
+    ]
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    imported = 0
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    for p in partners_data:
+        cursor.execute("SELECT id FROM clients WHERE LOWER(name) = LOWER(%s)", (p['name'],))
+        row = cursor.fetchone()
+        if not row:
+            cursor.execute("""
+                INSERT INTO clients (
+                    name, country, address, contact_person, position, phone, phone_2, 
+                    email, website, buyer_type, interest_level, is_active, deal_stage
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'постачальник', 'середня зацікавленість', TRUE, 'none')
+                RETURNING id
+            """, (
+                p['name'], p['country'], p['address'], p['contact_person'], p['position'],
+                p['phone'], p['phone_2'], p['email'], p['website']
+            ))
+            client_id = cursor.fetchone()[0]
+            
+            if p['notes']:
+                cursor.execute("""
+                    INSERT INTO negotiations (client_id, date, result, author)
+                    VALUES (%s, %s, %s, %s)
+                """, (client_id, now_str, f"📋 [Нотатки постачальника]: {p['notes']}", 'CEO'))
+            imported += 1
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return f"<div style='font-family: sans-serif; padding: 30px; text-align: center;'><h2>✅ Успішно імпортовано {imported} постачальників!</h2><br><a href='/' style='background: #2D7F35; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;'>Повернутися в CRM</a></div>"
 
 @app.route('/toggle_client_status/<int:client_id>', methods=['POST'])
 @login_required
