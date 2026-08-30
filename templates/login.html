@@ -2,24 +2,25 @@
 {% block content %}
 <div class="row justify-content-center mt-5">
     <div class="col-md-4">
-        <div class="card shadow">
-            <div class="card-header bg-dark text-white text-center">
-                <h4>Вхід до системи CRM</h4>
+        <div class="card shadow-sm border-success">
+            <div class="card-header bg-success text-white text-center py-3">
+                <h4 class="mb-0 fw-bold"><i class="bi bi-shield-lock me-2"></i>Plonaris CRM</h4>
+                <small class="text-white-50">Вхід до робочого кабінету</small>
             </div>
-            <div class="card-body">
+            <div class="card-body p-4">
                 {% if error %}
-                    <div class="alert alert-danger text-center" role="alert">{{ error }}</div>
+                    <div class="alert alert-danger text-center py-2" role="alert">{{ error }}</div>
                 {% endif %}
                 <form method="POST">
                     <div class="mb-3">
-                        <label class="form-label">Логін</label>
-                        <input type="text" name="username" class="form-control" required>
+                        <label class="form-label fw-semibold">Логін</label>
+                        <input type="text" name="username" class="form-control" placeholder="Введіть логін" required>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Пароль</label>
-                        <input type="password" name="password" class="form-control" required>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Пароль</label>
+                        <input type="password" name="password" class="form-control" placeholder="Введіть пароль" required>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">Увійти</button>
+                    <button type="submit" class="btn btn-brand w-100 py-2 fw-bold shadow-sm">Увійти в систему</button>
                 </form>
             </div>
         </div>
