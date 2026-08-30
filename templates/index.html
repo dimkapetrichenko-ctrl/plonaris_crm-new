@@ -689,7 +689,7 @@
                         <thead class="table-light position-sticky top-0">
                             <tr>
                                 <th>Назва контрагента</th>
-                                <th class="text-center" style="width: 155px;">Стан оплати</th>
+                                <th class="text-center" style="width: 165px;">Стан оплати</th>
                                 <th class="text-end text-muted">Виставлено / План, zł</th>
                                 <th class="text-end text-success">Оплачено (Факт), zł</th>
                                 <th>Дата</th>
@@ -709,6 +709,15 @@
                                             <button type="submit" class="btn-status-pill status-paid" title="Натисніть, щоб змінити на 'Чекаємо оплату'">
                                                 <i class="bi bi-check-circle-fill"></i>
                                                 <span>Оплачено</span>
+                                                <i class="bi bi-arrow-repeat switch-icon"></i>
+                                            </button>
+                                        </form>
+                                    {% elif plan.actual_amount > 0 and plan.planned_amount > plan.actual_amount %}
+                                        <form action="/toggle_payment_status/{{ plan.id }}" method="POST" class="m-0 d-inline">
+                                            <input type="hidden" name="target_status" value="paid">
+                                            <button type="submit" class="btn-status-pill status-partial" title="Натисніть, щоб закрити залишок як 'Повністю оплачено'">
+                                                <i class="bi bi-pie-chart-fill"></i>
+                                                <span>Частково ({{ "{:,.2f}".format(plan.planned_amount - plan.actual_amount) }} zł)</span>
                                                 <i class="bi bi-arrow-repeat switch-icon"></i>
                                             </button>
                                         </form>
@@ -885,7 +894,7 @@
                         <select name="payment_status" id="edit_payment_status" class="form-select form-select-sm fw-bold">
                             <option value="auto">Автоматично (за введеними сумами)</option>
                             <option value="waiting">🟡 Чекаємо оплату</option>
-                            <option value="paid">🟢 Оплачено</option>
+                            <option value="paid">🟢 Оплачено повністю</option>
                         </select>
                     </div>
                     <div class="mb-2">
@@ -1053,6 +1062,17 @@
         background-color: #fef3c7;
         border-color: #fcd34d;
         color: #92400e;
+    }
+
+    .status-partial {
+        background-color: #fef3c7;
+        color: #b45309;
+        border-color: #fcd34d;
+    }
+    .status-partial:hover {
+        background-color: #fde68a;
+        border-color: #f59e0b;
+        color: #78350f;
     }
 
     /* СТИЛІ БЛОКНОТА */
@@ -1643,13 +1663,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const date = this.getAttribute('data-date');
 
             document.getElementById('edit_finance_client_name').innerText = clientName;
-            document.getElementById('edit_planned_amount').value = planned;
+            document.getElementById('edit_planned_amount').value = planned > 0 ? planned : '';
             document.getElementById('edit_month_name').value = month;
             document.getElementById('edit_actual_amount').value = actual;
             document.getElementById('edit_payment_date').value = date;
 
             const statusSelect = document.getElementById('edit_payment_status');
-            if (actual > 0) {
+            if (actual >= planned && planned > 0) {
                 statusSelect.value = 'paid';
             } else {
                 statusSelect.value = 'waiting';
