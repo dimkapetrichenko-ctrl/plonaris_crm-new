@@ -76,6 +76,10 @@
                 <button onclick="switchWindow('notes-win')" id="btn-notes-win" class="btn btn-sm btn-outline-secondary fw-semibold px-3">
                     <i class="bi bi-journal-text text-success me-1"></i> Блокнот ✍️
                 </button>
+
+                <button onclick="switchWindow('chat-win')" id="btn-chat-win" class="btn btn-sm btn-outline-secondary fw-semibold px-3">
+                    <i class="bi bi-chat-dots text-success me-1"></i> Чат 💬
+                </button>
             </div>
         </div>
     </div>
@@ -365,6 +369,51 @@
                     </div>
                     
                     <textarea id="notebook-content" class="notebook-handwriting notebook-content-input" placeholder="Пишіть тут свої думки, список справ, розрахунки або важливі нотатки..." oninput="autoSaveNote()"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ВІКНО: ВНУТРІШНІЙ ЧАТ -->
+<div id="window-chat-win" class="crm-window" style="display: none;">
+    <div class="row justify-content-center">
+        <div class="col-lg-9 col-xl-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-success text-white py-2.5 d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">💬 Внутрішній чат (Дмитро та Людмила)</span>
+                    <span class="badge bg-light text-success fw-bold font-monospace" style="font-size: 0.75rem;">ONLINE</span>
+                </div>
+                
+                <div class="card-body p-3 bg-light" id="chat-messages-container" style="height: 52vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+                    <div class="text-center text-muted small py-4">Завантаження історії чату...</div>
+                </div>
+
+                <div class="card-footer bg-white p-3 border-top">
+                    <form id="chatForm" onsubmit="sendChatMessage(event)">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-md-3">
+                                <select id="chatAuthor" class="form-select form-select-sm fw-bold text-success">
+                                    <option value="Дмитро" selected>👨 Дмитро</option>
+                                    <option value="Людмила">👩 Людмила</option>
+                                </select>
+                            </div>
+                            <div class="col-md-7">
+                                <input type="text" id="chatMessageInput" class="form-control form-control-sm" placeholder="Напишіть повідомлення або киньте посилання..." autocomplete="off">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="btn btn-sm btn-outline-secondary w-100 mb-0 text-truncate" title="Прикріпити файл">
+                                    📎 <input type="file" id="chatFileInput" style="display: none;">
+                                </label>
+                            </div>
+                            <div class="col-12 mt-2 d-flex justify-content-between align-items-center">
+                                <span id="chat-file-name-label" class="text-muted small font-monospace">Файл не вибрано</span>
+                                <button type="submit" class="btn btn-sm btn-success fw-bold px-4 shadow-xs">
+                                    🚀 Надіслати
+                                </button>
+                            </div>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -1287,6 +1336,93 @@ function deleteCurrentNotePage() {
     renderCurrentNotePage();
 }
 
+// ЛОГІКА ЧАТУ
+let chatPollingInterval = null;
+
+function loadChatMessages() {
+    fetch('/get_chat_messages')
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const container = document.getElementById('chat-messages-container');
+                if (!container) return;
+                
+                if (data.messages.length === 0) {
+                    container.innerHTML = `<div class="text-center text-muted small py-4">У чаті ще немає повідомлень. Почніть розмову!</div>`;
+                    return;
+                }
+
+                let html = '';
+                data.messages.forEach(m => {
+                    let alignClass = m.author === 'Дмитро' ? 'ms-auto bg-success-subtle border-success' : 'me-auto bg-white border';
+                    let fileHtml = m.file_name ? `<div class="mt-1.5"><a href="/static/uploads/${m.file_name}" target="_blank" class="badge bg-dark text-white text-decoration-none p-1.5"><i class="bi bi-file-earmark-arrow-down me-1"></i> Завантажити файл</a></div>` : '';
+                    let parsedMsg = (m.message || '').replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-success text-decoration-underline">$1</a>');
+
+                    html += `
+                        <div class="card p-2.5 shadow-xs ${alignClass}" style="max-width: 75%; border-radius: 10px;">
+                            <div class="d-flex justify-content-between align-items-center gap-3 mb-1" style="font-size: 0.72rem;">
+                                <strong class="${m.author === 'Дмитро' ? 'text-success' : 'text-primary'}">${m.author}</strong>
+                                <span class="text-muted font-monospace">${m.time_str}</span>
+                            </div>
+                            <div class="text-dark" style="font-size: 0.88rem; word-break: break-word; white-space: pre-line;">${parsedMsg}</div>
+                            ${fileHtml}
+                        </div>
+                    `;
+                });
+                
+                let isScrolledToBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 50;
+                container.innerHTML = html;
+                if (isScrolledToBottom || container.dataset.initialLoaded !== 'true') {
+                    container.scrollTop = container.scrollHeight;
+                    container.dataset.initialLoaded = 'true';
+                }
+            }
+        });
+}
+
+function sendChatMessage(e) {
+    e.preventDefault();
+    const author = document.getElementById('chatAuthor').value;
+    const message = document.getElementById('chatMessageInput').value;
+    const fileInput = document.getElementById('chatFileInput');
+    
+    if (!message && fileInput.files.length === 0) return;
+
+    const formData = new FormData();
+    formData.append('author', author);
+    formData.append('message', message);
+    if (fileInput.files.length > 0) {
+        formData.append('chat_file', fileInput.files[0]);
+    }
+
+    fetch('/send_chat_message', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('chatMessageInput').value = '';
+            fileInput.value = '';
+            document.getElementById('chat-file-name-label').innerText = 'Файл не вибрано';
+            loadChatMessages();
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const fileInp = document.getElementById('chatFileInput');
+    if (fileInp) {
+        fileInp.addEventListener('change', function() {
+            if (this.files && this.files.length > 0) {
+                document.getElementById('chat-file-name-label').innerText = '📁 ' + this.files[0].name;
+            } else {
+                document.getElementById('chat-file-name-label').innerText = 'Файл не вибрано';
+            }
+        });
+    }
+});
+
 // СКАНУВАННЯ PDF-РАХУНКІВ
 function uploadInvoiceFile(input) {
     if (!input.files || input.files.length === 0) return;
@@ -1419,7 +1555,7 @@ function resetTableFilters() {
 function switchWindow(targetWinId) {
     document.querySelectorAll('.crm-window').forEach(win => win.style.display = 'none');
     document.getElementById('window-' + targetWinId).style.display = 'block';
-    ['today-win', 'calendar-win', 'all-win', 'finance-win', 'tasks-win', 'demand-win', 'notes-win'].forEach(id => {
+    ['today-win', 'calendar-win', 'all-win', 'finance-win', 'tasks-win', 'demand-win', 'notes-win', 'chat-win'].forEach(id => {
         let btn = document.getElementById('btn-' + id);
         if (btn) btn.className = "btn btn-sm btn-outline-secondary fw-semibold px-3";
     });
@@ -1435,6 +1571,18 @@ function switchWindow(targetWinId) {
             activeBtn.className = "btn btn-sm btn-success fw-bold px-3 shadow-sm";
             loadNotebookPages();
         }
+        else if(targetWinId === 'chat-win') {
+            activeBtn.className = "btn btn-sm btn-success fw-bold px-3 shadow-sm";
+            loadChatMessages();
+            if (!chatPollingInterval) {
+                chatPollingInterval = setInterval(loadChatMessages, 4000);
+            }
+            return;
+        }
+    }
+    if (chatPollingInterval && targetWinId !== 'chat-win') {
+        clearInterval(chatPollingInterval);
+        chatPollingInterval = null;
     }
 }
 
@@ -1707,6 +1855,7 @@ window.onload = function() {
     else if(urlParams.get('tab') === 'finance' || urlParams.get('finance_month') !== null) { switchWindow('finance-win'); } 
     else if(urlParams.get('tab') === 'demand') { switchWindow('demand-win'); } 
     else if(urlParams.get('tab') === 'notes') { switchWindow('notes-win'); }
+    else if(urlParams.get('tab') === 'chat') { switchWindow('chat-win'); }
     else { switchWindow('all-win'); }
 };
 </script>
