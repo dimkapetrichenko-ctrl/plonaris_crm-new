@@ -225,6 +225,16 @@ def init_db():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id SERIAL PRIMARY KEY,
+            author TEXT NOT NULL,
+            message TEXT,
+            file_name TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     
     conn.commit()
     cursor.close()
@@ -479,7 +489,53 @@ def index():
         top_demand=top_demand
     )
 
-# МАРШРУТИ ЗАВДАНЬ (ДОДАВАННЯ)
+# МАРШРУТИ ЧАТУ
+@app.route('/get_chat_messages')
+@login_required
+def get_chat_messages():
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=DictCursor)
+    cursor.execute("""
+        SELECT id, author, message, file_name, 
+               TO_CHAR(created_at, 'DD.MM.YYYY HH24:MI') as time_str 
+        FROM chat_messages 
+        ORDER BY id ASC
+    """)
+    messages = [dict(r) for r in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return jsonify({'success': True, 'messages': messages})
+
+@app.route('/send_chat_message', methods=['POST'])
+@login_required
+def send_chat_message():
+    author = request.form.get('author', 'Дмитро')
+    message = request.form.get('message', '').strip()
+    
+    file_name = None
+    file = request.files.get('chat_file')
+    if file and file.filename != '':
+        upload_folder = 'static/uploads'
+        os.makedirs(upload_folder, exist_ok=True)
+        safe_name = f"{int(datetime.now().timestamp())}_{file.filename}"
+        file_path = os.path.join(upload_folder, safe_name)
+        file.save(file_path)
+        file_name = safe_name
+
+    if message or file_name:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO chat_messages (author, message, file_name) VALUES (%s, %s, %s)",
+            (author, message, file_name)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+    return jsonify({'success': True})
+
+# МАРШРУТИ ЗАВДАНЬ
 @app.route('/add_task', methods=['POST'])
 @login_required
 def add_task():
@@ -644,7 +700,6 @@ def client_detail(client_id):
         deal_total_sum=deal_total_sum
     )
 
-# РЕДАГУВАННЯ ТА ВИДАЛЕННЯ АКТИВНОСТЕЙ
 @app.route('/edit_negotiation/<int:neg_id>', methods=['POST'])
 @login_required
 def edit_negotiation(neg_id):
@@ -677,7 +732,6 @@ def delete_negotiation(neg_id):
         
     return redirect(url_for('client_detail', client_id=client_id))
 
-# РЕДАГУВАННЯ ТА ВИДАЛЕННЯ КЛІЄНТІВ
 @app.route('/add_client', methods=['POST'])
 @login_required
 def add_client():
@@ -787,7 +841,6 @@ def delete_client(client_id):
     conn.close()
     return redirect(url_for('index'))
 
-# ЗМІНА СТАТУСУ ОПЛАТИ (ПЕРЕМИКАЧ ВРУЧНУ)
 @app.route('/toggle_payment_status/<int:plan_id>', methods=['POST'])
 @login_required
 def toggle_payment_status(plan_id):
@@ -823,7 +876,6 @@ def toggle_payment_status(plan_id):
     conn.close()
     return redirect(url_for('index', tab='finance'))
 
-# РУЧНЕ ВВЕДЕННЯ (ОКРЕМИЙ РЯДОК)
 @app.route('/add_direct_payment', methods=['POST'])
 @login_required
 def add_direct_payment():
@@ -943,7 +995,6 @@ def add_quick_sale(client_id):
         
     return redirect(url_for('client_detail', client_id=client_id))
 
-# РЕДАГУВАННЯ ФІНАНСОВОГО ЗАПИСУ (ПІДТРИМКА ЧАСТКОВОЇ ОПЛАТИ)
 @app.route('/edit_finance_plan/<int:plan_id>', methods=['POST'])
 @login_required
 def edit_finance_plan(plan_id):
@@ -1022,7 +1073,6 @@ def add_finance_plan():
         conn.close()
     return redirect(url_for('index', tab='finance', finance_month=month_name))
 
-# ЗЧИТУВАННЯ PDF-РАХУНКІВ (КОЖНА ФАКТУРА — ОКРЕМИЙ РЯДОК)
 @app.route('/upload_invoice_pdf', methods=['POST'])
 @login_required
 def upload_invoice_pdf():
@@ -1159,7 +1209,6 @@ def upload_invoice_pdf():
     except Exception as e:
         return jsonify({'success': False, 'message': f'Помилка обробки PDF: {str(e)}'})
 
-# МАРШРУТИ БЛОКНОТА
 @app.route('/notes')
 @login_required
 def get_notes():
@@ -1208,7 +1257,6 @@ def delete_note(note_id):
     conn.close()
     return jsonify({'success': True})
 
-# ЕКСПОРТ EXCEL
 @app.route('/export_excel')
 @login_required
 def export_excel():
