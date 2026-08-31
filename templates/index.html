@@ -393,8 +393,8 @@
                     <form id="chatForm" onsubmit="sendChatMessage(event)">
                         <div class="row g-2 align-items-center">
                             <div class="col-md-3">
-                                <select id="chatAuthor" class="form-select form-select-sm fw-bold text-success">
-                                    <option value="Дмитро" selected>👨 Дмитро</option>
+                                <select id="chatAuthor" class="form-select form-select-sm fw-bold text-success" onchange="saveAuthorChoice(this.value)">
+                                    <option value="Дмитро">👨 Дмитро</option>
                                     <option value="Людмила">👩 Людмила</option>
                                 </select>
                             </div>
@@ -1336,8 +1336,12 @@ function deleteCurrentNotePage() {
     renderCurrentNotePage();
 }
 
-// ЛОГІКА ЧАТУ
+// ЛОГІКА ЧАТУ З ЗАПАМ'ЯТОВУВАННЯМ ІМЕНІ
 let chatPollingInterval = null;
+
+function saveAuthorChoice(authorName) {
+    localStorage.setItem('plonaris_chat_author', authorName);
+}
 
 function loadChatMessages() {
     fetch('/get_chat_messages')
@@ -1411,6 +1415,12 @@ function sendChatMessage(e) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    const savedAuthor = localStorage.getItem('plonaris_chat_author');
+    if (savedAuthor) {
+        const selectEl = document.getElementById('chatAuthor');
+        if (selectEl) selectEl.value = savedAuthor;
+    }
+
     const fileInp = document.getElementById('chatFileInput');
     if (fileInp) {
         fileInp.addEventListener('change', function() {
