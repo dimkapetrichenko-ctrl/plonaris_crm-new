@@ -1257,6 +1257,106 @@ def delete_note(note_id):
     conn.close()
     return jsonify({'success': True})
 
+@app.route('/import_clients_excel', methods=['POST'])
+@login_required
+def import_clients_excel():
+    file = request.files.get('excel_file')
+    if not file or file.filename == '':
+        return jsonify({'success': False, 'message': 'Файл не обрано!'})
+        
+    try:
+        df = pd.read_excel(file)
+        df = df.fillna('')
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        imported_count = 0
+        
+        for index, row in df.iterrows():
+            name = str(row.get('Назва компанії', '')).strip()
+            if not name:
+                continue
+                
+            interest_level = str(row.get('Зацікавленість', '')).strip() or 'не опрацьовано'
+            
+            stage_raw = str(row.get('Етап угоди', '')).strip()
+            if '1' in stage_raw or 'Запит' in stage_raw: deal_stage = 'request'
+            elif '2' in stage_raw or 'Рахунок' in stage_raw: deal_stage = 'offer_sent'
+            elif '3' in stage_raw or 'Оплачено' in stage_raw: deal_stage = 'paid_shipped'
+            elif '4' in stage_raw or 'Постійний' in stage_raw: deal_stage = 'regular'
+            else: deal_stage = 'none'
+                
+            buyer_type = str(row.get('Тип покупця', '')).strip()
+            if not buyer_type: buyer_type = 'не вказано'
+                
+            brands = str(row.get('Пріоритетні бренди', '')).strip()
+            aftermarket = str(row.get('Aftermarket оператори', '')).strip()
+            website = str(row.get('Веб-сайт', '')).strip()
+            country = str(row.get('Країна', '')).strip()
+            address = str(row.get('Адреса', '')).strip()
+            
+            cp1 = str(row.get('Контактна особа 1', '')).strip()
+            pos1 = str(row.get('Посада 1', '')).strip()
+            ph1 = str(row.get('Телефон 1', '')).strip()
+            wa1 = str(row.get('WhatsApp 1', '')).strip()
+            em1 = str(row.get('Email 1', '')).strip()
+            
+            cp2 = str(row.get('Контактна особа 2', '')).strip()
+            pos2 = str(row.get('Посада 2', '')).strip()
+            ph2 = str(row.get('Телефон 2', '')).strip()
+            wa2 = str(row.get('WhatsApp 2', '')).strip()
+            em2 = str(row.get('Email 2', '')).strip()
+            
+            next_date = str(row.get('Дата наступної події', '')).strip()
+            if next_date and len(next_date) >= 10: next_date = next_date[:10]
+            next_type = str(row.get('Вид наступної події', '')).strip()
+            
+            status_raw = str(row.get('Статус клієнта', '')).strip().lower()
+            is_active = False if status_raw in ['архів', 'деактивовано', 'неактивний'] else True
+            deactivation_reason = str(row.get('Причина деактивації', '')).strip()
+            
+            history_raw = str(row.get('Опис розмов та активностей', '')).strip()
+
+            cursor.execute('''
+                INSERT INTO clients (
+                    name, nip, country, address, contact_person, position, phone, email, website, buyer_type, brands,
+                    contact_person_2, position_2, phone_2, email_2, interest_level, next_event_date, next_event_type, mayer_reg, whatsapp_1, whatsapp_2, is_active, deal_stage, aftermarket_companies, deactivation_reason
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                ) RETURNING id
+            ''', (
+                name, '', country, address, cp1, pos1, ph1, em1, website, buyer_type, brands,
+                cp2, pos2, ph2, em2, interest_level, next_date, next_type, 'Ні', wa1, wa2, is_active, deal_stage, aftermarket, deactivation_reason
+            ))
+            
+            client_id = cursor.fetchone()[0]
+            
+            if history_raw:
+                records = [r.strip() for r in history_raw.split('\n') if r.strip()]
+                for record in records:
+                    record_date = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    try:
+                        if len(record) >= 16 and record[4] == '-' and record[7] == '-':
+                            record_date = record[:16]
+                            record = record[16:].strip()
+                    except Exception:
+                        pass
+                    
+                    cursor.execute("INSERT INTO negotiations (client_id, date, result, author) VALUES (%s, %s, %s, %s)",
+                                   (client_id, record_date, record, 'Імпорт'))
+            
+            imported_count += 1
+                    
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': f'Успішно імпортовано {imported_count} партнерів!'})
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Помилка обробки файлу: {str(e)}'})
+
 @app.route('/export_excel')
 @login_required
 def export_excel():
@@ -1270,7 +1370,7 @@ def export_excel():
                    WHEN c.deal_stage = 'regular' THEN '4. Постійний партнер'
                    ELSE 'Немає активної угоди'
                END AS "Етап угоди",
-               c.buyer_type AS "Тип контрагента",
+               c.buyer_type AS "Тип покупця",
                c.website AS "Веб-сайт", c.country AS "Країна", c.address AS "Адреса",
                c.contact_person AS "Контактна особа 1", c.position AS "Посада 1", c.phone AS "Телефон 1", c.whatsapp_1 AS "WhatsApp 1", c.email AS "Email 1",
                c.contact_person_2 AS "Контактна особа 2", c.position_2 AS "Посада 2", c.phone_2 AS "Телефон 2", c.whatsapp_2 AS "WhatsApp 2", c.email_2 AS "Email 2",
@@ -1297,3 +1397,4 @@ def export_excel():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
