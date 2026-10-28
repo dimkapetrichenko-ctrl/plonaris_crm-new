@@ -99,6 +99,11 @@
                 </button>
                 <input type="file" id="invoiceFileInput" accept=".pdf" style="display: none;" onchange="uploadInvoiceFile(this)">
 
+                <button type="button" class="btn btn-outline-primary btn-sm fw-bold px-3 shadow-sm d-flex align-items-center gap-1" onclick="document.getElementById('importExcelInput').click()">
+                    <i class="bi bi-file-earmark-spreadsheet"></i> Імпорт (Excel)
+                </button>
+                <input type="file" id="importExcelInput" accept=".xlsx, .xls" style="display: none;" onchange="uploadExcelFile(this)">
+
                 <a href="/export_excel" class="btn btn-outline-success btn-sm fw-bold px-3 shadow-sm d-flex align-items-center gap-1">
                     <i class="bi bi-file-earmark-excel"></i> Експорт Excel
                 </a>
@@ -1446,6 +1451,42 @@ function uploadInvoiceFile(input) {
     btn.disabled = true;
 
     fetch('/upload_invoice_pdf', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        input.value = '';
+        if (data.success) {
+            alert(data.message);
+            window.location.reload();
+        } else {
+            alert('Помилка: ' + data.message);
+        }
+    })
+    .catch(err => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        input.value = '';
+        alert('Помилка завантаження файлу.');
+    });
+}
+
+// ІМПОРТ EXCEL
+function uploadExcelFile(input) {
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('excel_file', file);
+
+    const btn = document.querySelector('[onclick*="importExcelInput"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Імпортую...';
+    btn.disabled = true;
+
+    fetch('/import_clients_excel', {
         method: 'POST',
         body: formData
     })
