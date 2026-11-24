@@ -1357,11 +1357,20 @@ def import_clients_excel():
     except Exception as e:
         return jsonify({'success': False, 'message': f'Помилка обробки файлу: {str(e)}'})
 
-@app.route('/export_excel')
+@app.route('/export_excel', methods=['GET', 'POST'])
 @login_required
 def export_excel():
+    ids_raw = request.form.get('ids', '') if request.method == 'POST' else request.args.get('ids', '')
+    
+    client_ids = []
+    if ids_raw:
+        for item in ids_raw.split(','):
+            item = item.strip()
+            if item.isdigit():
+                client_ids.append(int(item))
+
     conn = get_db_connection()
-    query = """
+    base_query = """
         SELECT c.name AS "Назва компанії", c.nip AS "NIP / TAX ID", c.interest_level AS "Зацікавленість", 
                CASE 
                    WHEN c.deal_stage = 'request' THEN '1. Запит / Підбір'
@@ -1377,9 +1386,16 @@ def export_excel():
                c.next_event_date AS "Дата наступної події", c.next_event_type AS "Вид наступної події",
                CASE WHEN c.is_active IS FALSE THEN 'Деактивовано (Архів)' ELSE 'Активний' END AS "Статус",
                c.deactivation_reason AS "Причина деактивації"
-        FROM clients c ORDER BY c.name ASC
+        FROM clients c
     """
-    df = pd.read_sql(query, conn)
+
+    if client_ids:
+        query = base_query + " WHERE c.id = ANY(%s) ORDER BY c.name ASC"
+        df = pd.read_sql(query, conn, params=(client_ids,))
+    else:
+        query = base_query + " ORDER BY c.name ASC"
+        df = pd.read_sql(query, conn)
+
     conn.close()
     
     output = io.BytesIO()
@@ -1387,11 +1403,12 @@ def export_excel():
         df.to_excel(writer, index=False, sheet_name='Партнери Plonaris')
     output.seek(0)
     
+    suffix = f"_selected_{len(client_ids)}" if client_ids else ""
     return send_file(
         output,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         as_attachment=True,
-        download_name=f'Plonaris_Partners_{datetime.now().strftime("%Y-%m-%d")}.xlsx'
+        download_name=f'Plonaris_Partners_{datetime.now().strftime("%Y-%m-%d")}{suffix}.xlsx'
     )
 
 if __name__ == '__main__':
