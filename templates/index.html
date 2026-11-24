@@ -104,9 +104,12 @@
                 </button>
                 <input type="file" id="importExcelInput" accept=".xlsx, .xls" style="display: none;" onchange="uploadExcelFile(this)">
 
-                <a href="/export_excel" class="btn btn-outline-success btn-sm fw-bold px-3 shadow-sm d-flex align-items-center gap-1">
-                    <i class="bi bi-file-earmark-excel"></i> Експорт Excel
-                </a>
+                <button type="button" id="btn-export-excel" onclick="exportClientsToExcel()" class="btn btn-outline-success btn-sm fw-bold px-3 shadow-sm d-flex align-items-center gap-1">
+                    <i class="bi bi-file-earmark-excel"></i> <span id="export-btn-text">Експорт Excel</span>
+                </button>
+                <form id="exportExcelForm" method="POST" action="/export_excel" style="display: none;">
+                    <input type="hidden" name="ids" id="exportClientIds">
+                </form>
 
                 <form method="GET" action="/" class="d-flex align-items-center m-0">
                     <input type="hidden" name="search" value="{{ search_query }}">
@@ -144,17 +147,21 @@
                     <table class="table table-sm table-hover align-middle mb-0" id="mainClientsTable" style="font-size: 0.85rem; width: 100%;">
                         <thead>
                             <tr class="header-titles-row">
+                                <th style="width: 3%; text-align: center;">
+                                    <input type="checkbox" id="select-all-clients" class="form-check-input" onchange="toggleSelectAllClients(this)" title="Вибрати всіх видимих">
+                                </th>
                                 <th style="width: 15%;">Компанія</th>
                                 <th style="width: 13%;">Тип контакту</th>
                                 <th style="width: 10%;">Країна</th>
                                 <th style="text-align: center; width: 12%;">Статус</th>
                                 <th style="text-align: center; width: 14%;">Етап угоди</th>
                                 <th style="text-align: center; width: 7%;">PLONARIS</th>
-                                <th style="width: 18%;">Опис активності</th>
-                                <th style="width: 11%;">Наступна дія</th>
+                                <th style="width: 16%;">Опис активності</th>
+                                <th style="width: 10%;">Наступна дія</th>
                                 <th style="text-align: center; width: 5%;">Дія</th>
                             </tr>
                             <tr id="excel-filter-row">
+                                <th></th>
                                 <th>
                                     <input type="text" id="filter-name" class="form-control form-control-sm" placeholder="🔍 Назва / NIP..." onkeyup="filterClientsTable()">
                                 </th>
@@ -226,6 +233,7 @@
                         <tbody id="clients-table-body">
                             {% for client in clients %}
                             <tr class="client-row {% if client.next_event_date == today_date %}table-warning fw-bold{% endif %}"
+                                data-id="{{ client.id }}"
                                 data-name="{{ (client.name or '')|lower }} {{ (client.nip or '')|lower }} {{ (client.contact_person or '')|lower }} {{ (client.phone or '')|lower }} {{ (client.email or '')|lower }}"
                                 data-type="{{ (client.buyer_type or 'не вказано')|lower }}"
                                 data-country="{{ (client.country or '')|lower }}"
@@ -236,6 +244,10 @@
                                 data-next-date="{{ (client.next_event_date or '')|lower }}"
                                 data-next-type="{{ (client.next_event_type or '')|lower }}">
                                 
+                                <td style="text-align: center;">
+                                    <input type="checkbox" class="form-check-input client-select-checkbox" value="{{ client.id }}" onchange="updateExportButtonState()">
+                                </td>
+
                                 <td style="padding: 6px 8px; max-width: 160px;">
                                     <a href="/client/{{ client.id }}" class="fw-bold text-decoration-none text-dark d-block text-truncate" title="{{ client.name }}">
                                         <i class="bi bi-building text-success"></i> {{ client.name }}
@@ -320,7 +332,7 @@
                             {% endfor %}
                             
                             {% if not clients %}
-                            <tr><td colspan="9" class="text-center text-muted py-4">База контактів порожня.</td></tr>
+                            <tr><td colspan="10" class="text-center text-muted py-4">База контактів порожня.</td></tr>
                             {% endif %}
                         </tbody>
                     </table>
@@ -1589,6 +1601,7 @@ function filterClientsTable() {
     });
     const counter = document.getElementById('visible-clients-count');
     if (counter) counter.innerText = visibleCount;
+    updateExportButtonState();
 }
 
 function resetTableFilters() {
@@ -1601,6 +1614,67 @@ function resetTableFilters() {
     if (document.getElementById('filter-last')) document.getElementById('filter-last').value = '';
     if (document.getElementById('filter-next-type')) document.getElementById('filter-next-type').value = '';
     filterClientsTable();
+}
+
+function toggleSelectAllClients(masterCheckbox) {
+    const rows = document.querySelectorAll('#clients-table-body .client-row');
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const cb = row.querySelector('.client-select-checkbox');
+            if (cb) cb.checked = masterCheckbox.checked;
+        }
+    });
+    updateExportButtonState();
+}
+
+function updateExportButtonState() {
+    const checkedBoxes = document.querySelectorAll('#clients-table-body .client-select-checkbox:checked');
+    const btn = document.getElementById('btn-export-excel');
+    const btnText = document.getElementById('export-btn-text');
+    const masterCb = document.getElementById('select-all-clients');
+
+    const visibleRows = Array.from(document.querySelectorAll('#clients-table-body .client-row'))
+        .filter(r => r.style.display !== 'none');
+    const checkedVisible = visibleRows.filter(r => r.querySelector('.client-select-checkbox')?.checked);
+
+    if (masterCb) {
+        masterCb.checked = visibleRows.length > 0 && checkedVisible.length === visibleRows.length;
+    }
+
+    if (btn && btnText) {
+        if (checkedBoxes.length > 0) {
+            btn.className = "btn btn-success btn-sm fw-bold px-3 shadow-sm d-flex align-items-center gap-1";
+            btnText.innerText = `Експорт вибраних (${checkedBoxes.length})`;
+        } else {
+            btn.className = "btn btn-outline-success btn-sm fw-bold px-3 shadow-sm d-flex align-items-center gap-1";
+            btnText.innerText = `Експорт Excel (${visibleRows.length})`;
+        }
+    }
+}
+
+function exportClientsToExcel() {
+    const checkedBoxes = document.querySelectorAll('#clients-table-body .client-select-checkbox:checked');
+    let ids = [];
+
+    if (checkedBoxes.length > 0) {
+        checkedBoxes.forEach(cb => ids.push(cb.value));
+    } else {
+        const rows = document.querySelectorAll('#clients-table-body .client-row');
+        rows.forEach(row => {
+            if (row.style.display !== 'none') {
+                const id = row.getAttribute('data-id');
+                if (id) ids.push(id);
+            }
+        });
+    }
+
+    if (ids.length === 0) {
+        alert('Немає записів для експорту за поточними фільтрами.');
+        return;
+    }
+
+    document.getElementById('exportClientIds').value = ids.join(',');
+    document.getElementById('exportExcelForm').submit();
 }
 
 function switchWindow(targetWinId) {
@@ -1899,6 +1973,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 window.onload = function() {
     updateTasksDesktopBadges();
+    updateExportButtonState();
     renderCalendar();
     renderTasksCalendar();
     const urlParams = new URLSearchParams(window.location.search);
